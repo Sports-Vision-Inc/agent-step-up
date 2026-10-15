@@ -1,0 +1,1 @@
+T2: UserProxyAgent yields a free-text reply into the conversation; it gates no specific tool call and carries no effect descriptor. It is a conversational turn, not an approval — reported n/a. The approval mechanism is CodeExecutorAgent(approval_func=...); see the gate row.

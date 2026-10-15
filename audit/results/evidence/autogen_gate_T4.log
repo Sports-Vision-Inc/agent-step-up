@@ -1,0 +1,1 @@
+ApprovalRequest exposes the exact code + context to approval_func; the SDK ships no card UI and no untrusted-text box.

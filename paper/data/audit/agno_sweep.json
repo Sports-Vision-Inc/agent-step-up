@@ -1,0 +1,83 @@
+[
+  {
+    "env": "agno_309",
+    "version": "3.0.9",
+    "in_loopjacking_range": true,
+    "T2_P2_effect_binding": {
+      "outcome": "fail",
+      "qualifier": null,
+      "marker": null,
+      "levels": {
+        "L1": "substituted (in-process tool_args mutation) \u2014 not a binding gap",
+        "L2": "substituted",
+        "L3": "resist"
+      },
+      "evidence": "results/evidence/agno_sweep_agno_309_T2.log"
+    },
+    "T3_P3_single_use": {
+      "outcome": "fail",
+      "qualifier": null,
+      "marker": null,
+      "levels": {
+        "same_call": "re-exec",
+        "rollback": "double-exec",
+        "cross_call": "n/a"
+      },
+      "evidence": "results/evidence/agno_sweep_agno_309_T3.log"
+    }
+  },
+  {
+    "env": "agno_3010",
+    "version": "3.0.10",
+    "in_loopjacking_range": false,
+    "T2_P2_effect_binding": {
+      "outcome": "fail",
+      "qualifier": null,
+      "marker": null,
+      "levels": {
+        "L1": "substituted (in-process tool_args mutation) \u2014 not a binding gap",
+        "L2": "substituted",
+        "L3": "resist"
+      },
+      "evidence": "results/evidence/agno_sweep_agno_3010_T2.log"
+    },
+    "T3_P3_single_use": {
+      "outcome": "fail",
+      "qualifier": null,
+      "marker": null,
+      "levels": {
+        "same_call": "re-exec",
+        "rollback": "double-exec",
+        "cross_call": "n/a"
+      },
+      "evidence": "results/evidence/agno_sweep_agno_3010_T3.log"
+    }
+  },
+  {
+    "env": "agno",
+    "version": "3.1.3",
+    "in_loopjacking_range": false,
+    "T2_P2_effect_binding": {
+      "outcome": "fail",
+      "qualifier": null,
+      "marker": null,
+      "levels": {
+        "L1": "substituted (in-process tool_args mutation) \u2014 not a binding gap",
+        "L2": "substituted",
+        "L3": "substituted"
+      },
+      "evidence": "results/evidence/agno_T2.log"
+    },
+    "T3_P3_single_use": {
+      "outcome": "partial",
+      "qualifier": "STATE",
+      "marker": null,
+      "levels": {
+        "same_call": "consumed relative to run state",
+        "rollback": "double-exec",
+        "cross_call": "n/a"
+      },
+      "evidence": "results/evidence/agno_T3.log"
+    }
+  }
+]

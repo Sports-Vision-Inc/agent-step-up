@@ -1,0 +1,77 @@
+{
+ "machine": {
+  "python": "3.13.13",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "processor": "arm",
+  "cpu_count": 8
+ },
+ "n": 300,
+ "rows": {
+  "canonicalize_digest": {
+   "n": 300,
+   "median_us": 190.6,
+   "p95_us": 203.5,
+   "mean_us": 192.5,
+   "min_us": 188.0,
+   "max_us": 243.6
+  },
+  "policy_decide": {
+   "n": 300,
+   "median_us": 36.0,
+   "p95_us": 39.1,
+   "mean_us": 36.5,
+   "min_us": 35.0,
+   "max_us": 91.6
+  },
+  "gateway_challenge": {
+   "n": 300,
+   "median_us": 1455.9,
+   "p95_us": 1615.1,
+   "mean_us": 1556.9,
+   "min_us": 1334.8,
+   "max_us": 11471.5
+  },
+  "gateway_allow_execute": {
+   "n": 300,
+   "median_us": 919.3,
+   "p95_us": 970.1,
+   "mean_us": 928.4,
+   "min_us": 865.3,
+   "max_us": 2076.9
+  },
+  "http_tool_call_202": {
+   "n": 300,
+   "median_us": 3423.3,
+   "p95_us": 3832.0,
+   "mean_us": 3450.1,
+   "min_us": 2910.8,
+   "max_us": 6720.4
+  },
+  "http_approve_passkey": {
+   "n": 300,
+   "median_us": 3388.2,
+   "p95_us": 3783.6,
+   "mean_us": 3449.3,
+   "min_us": 3274.7,
+   "max_us": 6584.5
+  },
+  "approval_verify_offline": {
+   "n": 300,
+   "median_us": 142.9,
+   "p95_us": 146.1,
+   "mean_us": 143.4,
+   "min_us": 141.6,
+   "max_us": 153.1
+  },
+  "http_execute_approved": {
+   "n": 300,
+   "median_us": 1947.6,
+   "p95_us": 2126.0,
+   "mean_us": 2569.1,
+   "min_us": 1893.2,
+   "max_us": 177967.0
+  }
+ },
+ "label": "in-process microbenchmarks; exclude network/TLS/browser and human time"
+}

@@ -1,0 +1,3 @@
+T1: run output type = DeferredToolRequests; approvals pending = [('wire_transfer', {'amount': 10, 'to': 'alice'})]
+T1: ledger after in-process ToolApproved() + resume = [{'amount': 10, 'to': 'alice'}]; final='done'
+T1: message history dumps/loads via ModelMessagesTypeAdapter; resume accepts (message_history, deferred_tool_results) -> out-of-process resume.

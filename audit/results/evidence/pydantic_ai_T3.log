@@ -1,0 +1,3 @@
+T3: ledger after first approve = [{'amount': 10, 'to': 'alice'}]
+T3 same_call: replay against post-exec history raised UserError: Tool call results were provided, but the message history does not contain any unprocessed tool calls.
+T3 rollback: same results re-applied to pre-execution history twice = [{'amount': 10, 'to': 'alice'}, {'amount': 10, 'to': 'alice'}]

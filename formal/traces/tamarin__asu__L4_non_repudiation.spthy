@@ -1,0 +1,778 @@
+theory ASU begin
+
+// Function signature and definition of the equational theory E
+
+builtins: natural-numbers
+functions: fst/1, h/1, pair/2, pk/1, render/1, sign/2, snd/1, true/0,
+           unrender/1, verify/3
+equations:
+    fst(<x.1, x.2>) = x.1,
+    snd(<x.1, x.2>) = x.2,
+    unrender(render(x)) = x,
+    verify(sign(x.1, x.2), x.1, pk(x.2)) = true
+
+
+
+
+
+
+
+
+
+
+
+restriction Equality:
+  "∀ x y #i. (Eq( x, y ) @ #i) ⇒ (x = y)"
+  // safety formula
+
+restriction LessEq:
+  "∀ %x %y #i.
+    (LeqNat( %x, %y ) @ #i) ⇒ ((%x = %y) ∨ (∃ %z. (%x%+%z) = %y))"
+
+restriction FirstEnrollmentOnce:
+  "∀ U #i #j. ((OnlyOnce( U ) @ #i) ∧ (OnlyOnce( U ) @ #j)) ⇒ (#i = #j)"
+  // safety formula
+
+rule (modulo E) Register_Device:
+   [ Fr( ~sk ) ]
+  --[ OnlyOnce( $U ), Register( $U, pk(~sk) ) ]->
+   [ !Ltk( $U, ~sk ), !Pk( $U, pk(~sk) ), Out( pk(~sk) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Open_Enrollment:
+   [ ] --[ EnrollmentOpen( ) ]-> [ !EnrollOpenState( ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Agent_Enrolls:
+   [ !EnrollOpenState( ), Fr( ~ask ) ]
+  --[ OnlyOnce( $U ), AgentEnrolled( $U ) ]->
+   [ !Pk( $U, pk(~ask) ), Out( ~ask ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Compromise_Device:
+   [ !Ltk( U, sk ) ] --[ Compromise( U ) ]-> [ Out( sk ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Gateway_ToolCall:
+   [ In( <'call', U, <t, r, %a>, expl> ), !Pk( U, pkU ), Fr( ~aid ) ]
+  --[ Challenge( U, ~aid, <t, r, %a> ) ]->
+   [
+   Pending( U, ~aid, <t, r, %a>, 'nogrant' ),
+   ToDevice( U, ~aid, <t, r, %a>, 'nogrant', expl ), Out( ~aid )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Gateway_ToolCall_OfferGrant:
+   [ In( <'call_grant', U, <t, r, %a>, expl> ), !Pk( U, pkU ), Fr( ~aid ) ]
+  --[
+  Challenge( U, ~aid, <t, r, %a> ),
+  GrantOffered( U, ~aid, <'grant', U, t, r, %a> )
+  ]->
+   [
+   Pending( U, ~aid, <t, r, %a>, <'grant', U, t, r, %a> ),
+   ToDevice( U, ~aid, <t, r, %a>, <'grant', U, t, r, %a>, expl ),
+   Out( ~aid )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Origin_Ceremony:
+   [ ToDevice( U, aid, e, g, expl ) ]
+  -->
+   [
+   Ceremony( U, <'ASU-APPROVAL-v2', h(e), aid, 'null'>,
+             <aid, render(e), render('nogrant'), expl>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Origin_Ceremony_WithGrant:
+   [ ToDevice( U, aid, e, <'grant', U, t, r, %a>, expl ) ]
+  -->
+   [
+   Ceremony( U, <'ASU-APPROVAL-v2', h(e), aid, h(<'grant', U, t, r, %a>)>,
+             <aid, render(e), render(<'grant', U, t, r, %a>), expl>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Origin_Controls_Ceremony:
+   [ In( <'ceremony', U, c, card> ) ]
+  --[ CeremonyControl( U ) ]->
+   [ Ceremony( U, c, card ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Human_DecidesOnTrustedFields:
+   [
+   Ceremony( U, <'ASU-APPROVAL-v2', hd, aid, gd>, <aid, ce, cg, expl> ),
+   !Ltk( U, sk )
+   ]
+  --[
+  HumanApproves( U, aid, unrender(ce) ),
+  HumanApprovesGrant( U, aid, unrender(cg), gd ),
+  DecidesOnTrusted( U, aid ), Signed( U, aid, hd, gd )
+  ]->
+   [ Out( sign(<'ASU-APPROVAL-v2', hd, aid, gd>, sk) ) ]
+
+  /*
+  rule (modulo AC) Human_DecidesOnTrustedFields:
+     [
+     Ceremony( U, <'ASU-APPROVAL-v2', hd, aid, gd>, <aid, ce, cg, expl> ),
+     !Ltk( U, sk )
+     ]
+    --[
+    HumanApproves( U, aid, z ), HumanApprovesGrant( U, aid, z.1, gd ),
+    DecidesOnTrusted( U, aid ), Signed( U, aid, hd, gd )
+    ]->
+     [ Out( sign(<'ASU-APPROVAL-v2', hd, aid, gd>, sk) ) ]
+    variants (modulo AC)
+    1. ce    = ce.13
+       cg    = cg.14
+       z     = unrender(ce.13)
+       z.1   = unrender(cg.14)
+    
+    2. ce    = ce.14
+       cg    = render(z.22)
+       z     = unrender(ce.14)
+       z.1   = z.22
+    
+    3. ce    = render(z.14)
+       cg    = render(z.15)
+       z     = z.14
+       z.1   = z.15
+    
+    4. ce    = render(z.20)
+       cg    = cg.14
+       z     = z.20
+       z.1   = unrender(cg.14)
+  */
+
+rule (modulo E) Human_DecidesOnExplanation:
+   [
+   Ceremony( U, <'ASU-APPROVAL-v2', hd, aid, gd>, <aid, ce, cg, expl> ),
+   !Ltk( U, sk )
+   ]
+  --[
+  HumanApproves( U, aid, expl ), DecidesOnExplanation( U, aid ),
+  Signed( U, aid, hd, gd )
+  ]->
+   [ Out( sign(<'ASU-APPROVAL-v2', hd, aid, gd>, sk) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Gateway_Verify:
+   [ Pending( U, aid, e, g ), In( s ), !Pk( U, pkU ) ]
+  --[
+  Eq( verify(s, <'ASU-APPROVAL-v2', h(e), aid, 'null'>, pkU), true ),
+  Approved( U, aid, e )
+  ]->
+   [ ApprovedSt( U, aid, e, 'null', s ) ]
+
+  /*
+  rule (modulo AC) Gateway_Verify:
+     [ Pending( U, aid, e, g ), In( s ), !Pk( U, pkU ) ]
+    --[ Eq( z, true ), Approved( U, aid, e ) ]->
+     [ ApprovedSt( U, aid, e, 'null', s ) ]
+    variants (modulo AC)
+    1. aid   = aid.10
+       e     = e.11
+       pkU   = pkU.13
+       s     = s.14
+       z     = verify(s.14, <'ASU-APPROVAL-v2', h(e.11), aid.10, 'null'>,
+                      pkU.13)
+    
+    2. aid   = aid.13
+       e     = e.14
+       pkU   = pk(x.23)
+       s     = sign(<'ASU-APPROVAL-v2', h(e.14), aid.13, 'null'>, x.23)
+       z     = true
+  */
+
+rule (modulo E) Gateway_Verify_Grant:
+   [ Pending( U, aid, e, <'grant', U, t, r, %a> ), In( s ), !Pk( U, pkU ) ]
+  --[
+  Eq( verify(s, <'ASU-APPROVAL-v2', h(e), aid, h(<'grant', U, t, r, %a>)>,
+             pkU),
+      true
+  ),
+  Approved( U, aid, e ), GrantActive( U, aid, <'grant', U, t, r, %a> )
+  ]->
+   [
+   ApprovedSt( U, aid, e, h(<'grant', U, t, r, %a>), s ),
+   GrantUse( U, aid, <'grant', U, t, r, %a>, '1' ),
+   GrantUse( U, aid, <'grant', U, t, r, %a>, '2' )
+   ]
+
+  /*
+  rule (modulo AC) Gateway_Verify_Grant:
+     [ Pending( U, aid, e, <'grant', U, t, r, %a> ), In( s ), !Pk( U, pkU ) ]
+    --[
+    Eq( z, true ), Approved( U, aid, e ),
+    GrantActive( U, aid, <'grant', U, t, r, %a> )
+    ]->
+     [
+     ApprovedSt( U, aid, e, h(<'grant', U, t, r, %a>), s ),
+     GrantUse( U, aid, <'grant', U, t, r, %a>, '1' ),
+     GrantUse( U, aid, <'grant', U, t, r, %a>, '2' )
+     ]
+    variants (modulo AC)
+    1. U     = U.21
+       aid   = aid.22
+       e     = e.23
+       pkU   = pkU.24
+       r     = r.25
+       s     = s.26
+       t     = t.27
+       z     = verify(s.26,
+                      <'ASU-APPROVAL-v2', h(e.23), aid.22, 
+                       h(<'grant', U.21, t.27, r.25, %a.28>)>,
+                      pkU.24)
+       %a    = %a.28
+    
+    2. U     = U.41
+       aid   = aid.42
+       e     = e.43
+       pkU   = pk(x.80)
+       r     = r.45
+       s     = sign(<'ASU-APPROVAL-v2', h(e.43), aid.42, 
+                     h(<'grant', U.41, t.47, r.45, %a.48>)>,
+                    x.80)
+       t     = t.47
+       z     = true
+       %a    = %a.48
+  */
+
+rule (modulo E) Gateway_Execute:
+   [ ApprovedSt( U, aid, e, gd, s ), In( <'exec', aid, e2> ) ]
+  --[ Eq( h(e2), h(e) ), Execute( U, aid, e ) ]->
+   [ Out( <'receipt', U, aid, h(e), gd, s> ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Gateway_ExecuteUnderGrant:
+   [
+   GrantUse( U, gid, <'grant', U, t, r, %cap>, k ),
+   In( <'gexec', U, gid, t2, r2, %a2> )
+   ]
+  --[
+  Eq( t2, t ), Eq( r2, r ), LeqNat( %a2, %cap ),
+  ExecuteGrant( U, gid, <t2, r2, %a2> ), UseGrant( gid, k )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Judge_Accept:
+   [ In( <'receipt', U, aid, hd, gd, s> ), !Pk( U, pkU ) ]
+  --[
+  Eq( verify(s, <'ASU-APPROVAL-v2', hd, aid, gd>, pkU), true ),
+  JudgeAccepts( U, aid, hd, gd )
+  ]->
+   [ ]
+
+  /*
+  rule (modulo AC) Judge_Accept:
+     [ In( <'receipt', U, aid, hd, gd, s> ), !Pk( U, pkU ) ]
+    --[ Eq( z, true ), JudgeAccepts( U, aid, hd, gd ) ]->
+     [ ]
+    variants (modulo AC)
+    1. aid   = aid.10
+       gd    = gd.11
+       hd    = hd.12
+       pkU   = pkU.13
+       s     = s.14
+       z     = verify(s.14, <'ASU-APPROVAL-v2', hd.12, aid.10, gd.11>, pkU.13)
+    
+    2. aid   = aid.13
+       gd    = gd.14
+       hd    = hd.15
+       pkU   = pk(x.23)
+       s     = sign(<'ASU-APPROVAL-v2', hd.15, aid.13, gd.14>, x.23)
+       z     = true
+  */
+
+lemma exec_possible:
+  exists-trace
+  "∃ U aid e #i.
+    ((((Execute( U, aid, e ) @ #i) ∧ (¬(∃ #k. Compromise( U ) @ #k))) ∧
+      (¬(∃ #d. DecidesOnExplanation( U, aid ) @ #d))) ∧
+     (¬(∃ #o. EnrollmentOpen( ) @ #o))) ∧
+    (¬(∃ #c. CeremonyControl( U ) @ #c))"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ U aid e #i.
+  (Execute( U, aid, e ) @ #i)
+ ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ⊥) ∧
+  (∀ #d. (DecidesOnExplanation( U, aid ) @ #d) ⇒ ⊥) ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥)"
+*/
+by sorry
+
+lemma grant_exec_possible:
+  exists-trace
+  "∃ U gid t r %a #i.
+    ((((ExecuteGrant( U, gid, <t, r, %a> ) @ #i) ∧
+       (¬(∃ #k. Compromise( U ) @ #k))) ∧
+      (¬(∃ #d. DecidesOnExplanation( U, gid ) @ #d))) ∧
+     (¬(∃ #o. EnrollmentOpen( ) @ #o))) ∧
+    (¬(∃ #c. CeremonyControl( U ) @ #c))"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ U gid t r %a #i.
+  (ExecuteGrant( U, gid, <t, r, %a> ) @ #i)
+ ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ⊥) ∧
+  (∀ #d. (DecidesOnExplanation( U, gid ) @ #d) ⇒ ⊥) ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥)"
+*/
+by sorry
+
+lemma judge_possible:
+  exists-trace
+  "∃ U aid hd gd #i.
+    (((JudgeAccepts( U, aid, hd, gd ) @ #i) ∧
+      (¬(∃ #k. Compromise( U ) @ #k))) ∧
+     (¬(∃ #o. EnrollmentOpen( ) @ #o))) ∧
+    (¬(∃ #c. CeremonyControl( U ) @ #c))"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ U aid hd gd #i.
+  (JudgeAccepts( U, aid, hd, gd ) @ #i)
+ ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ⊥) ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥)"
+*/
+by sorry
+
+lemma L1_effect_binding:
+  all-traces
+  "∀ U aid e #i.
+    ((((Execute( U, aid, e ) @ #i) ∧
+       (¬(∃ #d. DecidesOnExplanation( U, aid ) @ #d))) ∧
+      (¬(∃ #o. EnrollmentOpen( ) @ #o))) ∧
+     (¬(∃ #c. CeremonyControl( U ) @ #c))) ⇒
+    ((∃ #j. (HumanApproves( U, aid, e ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Execute( U, aid, e ) @ #i)
+ ∧
+  (∀ #d. (DecidesOnExplanation( U, aid ) @ #d) ⇒ ⊥) ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥) ∧
+  (∀ #j. (HumanApproves( U, aid, e ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma L1_sig_binding:
+  all-traces
+  "∀ U aid e #i.
+    ((Execute( U, aid, e ) @ #i) ∧ (¬(∃ #o. EnrollmentOpen( ) @ #o))) ⇒
+    ((∃ gd #j. (Signed( U, aid, h(e), gd ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Execute( U, aid, e ) @ #i)
+ ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ gd #j. (Signed( U, aid, h(e), gd ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma L2_single_use:
+  all-traces
+  "∀ U1 U2 aid e1 e2 #i #j.
+    ((Execute( U1, aid, e1 ) @ #i) ∧ (Execute( U2, aid, e2 ) @ #j)) ⇒
+    (#i = #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U1 U2 aid e1 e2 #i #j.
+  (Execute( U1, aid, e1 ) @ #i) ∧ (Execute( U2, aid, e2 ) @ #j)
+ ∧
+  ¬(#i = #j)"
+*/
+by sorry
+
+lemma L3_agent_independence:
+  all-traces
+  "∀ U aid e #i.
+    ((((Approved( U, aid, e ) @ #i) ∧
+       (¬(∃ #d. DecidesOnExplanation( U, aid ) @ #d))) ∧
+      (¬(∃ #o. EnrollmentOpen( ) @ #o))) ∧
+     (¬(∃ #c. CeremonyControl( U ) @ #c))) ⇒
+    ((∃ #j. (HumanApproves( U, aid, e ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Approved( U, aid, e ) @ #i)
+ ∧
+  (∀ #d. (DecidesOnExplanation( U, aid ) @ #d) ⇒ ⊥) ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥) ∧
+  (∀ #j. (HumanApproves( U, aid, e ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma L4_non_repudiation:
+  all-traces
+  "∀ U aid hd gd #i.
+    ((JudgeAccepts( U, aid, hd, gd ) @ #i) ∧
+     (¬(∃ #o. EnrollmentOpen( ) @ #o))) ⇒
+    ((∃ #j. (Signed( U, aid, hd, gd ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid hd gd #i.
+  (JudgeAccepts( U, aid, hd, gd ) @ #i)
+ ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #j. (Signed( U, aid, hd, gd ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+simplify
+solve( !Pk( U, pk(x) ) ▶₁ #i )
+  case Agent_Enrolls
+  by contradiction /* from formulas */
+next
+  case Register_Device
+  solve( !KU( sign(<'ASU-APPROVAL-v2', hd, aid, gd>, ~sk) ) @ #vk.10 )
+    case Human_DecidesOnExplanation_case_1
+    by contradiction /* from formulas */
+  next
+    case Human_DecidesOnExplanation_case_2
+    by contradiction /* from formulas */
+  next
+    case Human_DecidesOnExplanation_case_3
+    by contradiction /* from formulas */
+  next
+    case Human_DecidesOnExplanation_case_4
+    by contradiction /* from formulas */
+  next
+    case Human_DecidesOnTrustedFields_case_1
+    by contradiction /* from formulas */
+  next
+    case Human_DecidesOnTrustedFields_case_2
+    by contradiction /* from formulas */
+  next
+    case Human_DecidesOnTrustedFields_case_3
+    by contradiction /* from formulas */
+  next
+    case Human_DecidesOnTrustedFields_case_4
+    by contradiction /* from formulas */
+  next
+    case c_sign
+    solve( !KU( ~sk ) @ #vk.14 )
+      case Compromise_Device
+      by contradiction /* from formulas */
+    qed
+  qed
+qed
+
+lemma L4c_consent_nonrepudiation:
+  all-traces
+  "∀ U aid e gd #i.
+    ((((JudgeAccepts( U, aid, h(e), gd ) @ #i) ∧
+       (¬(∃ #d. DecidesOnExplanation( U, aid ) @ #d))) ∧
+      (¬(∃ #o. EnrollmentOpen( ) @ #o))) ∧
+     (¬(∃ #c. CeremonyControl( U ) @ #c))) ⇒
+    ((∃ #j. (HumanApproves( U, aid, e ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e gd #i.
+  (JudgeAccepts( U, aid, h(e), gd ) @ #i)
+ ∧
+  (∀ #d. (DecidesOnExplanation( U, aid ) @ #d) ⇒ ⊥) ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥) ∧
+  (∀ #j. (HumanApproves( U, aid, e ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma L5_grant_scope:
+  all-traces
+  "∀ U gid t r %a #i.
+    ((((ExecuteGrant( U, gid, <t, r, %a> ) @ #i) ∧
+       (¬(∃ #d. DecidesOnExplanation( U, gid ) @ #d))) ∧
+      (¬(∃ #o. EnrollmentOpen( ) @ #o))) ∧
+     (¬(∃ #c. CeremonyControl( U ) @ #c))) ⇒
+    (((∃ #j.
+        ((HumanApproves( U, gid, <t, r, %a> ) @ #j) ∧
+         (HumanApprovesGrant( U, gid, <'grant', U, t, r, %a>,
+                              h(<'grant', U, t, r, %a>)
+          ) @ #j)) ∧
+        (#j < #i)) ∨
+      (∃ %z #j.
+        ((HumanApproves( U, gid, <t, r, (%a%+%z)> ) @ #j) ∧
+         (HumanApprovesGrant( U, gid, <'grant', U, t, r, (%a%+%z)>,
+                              h(<'grant', U, t, r, (%a%+%z)>)
+          ) @ #j)) ∧
+        (#j < #i))) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U gid t r %a #i.
+  (ExecuteGrant( U, gid, <t, r, %a> ) @ #i)
+ ∧
+  (∀ #d. (DecidesOnExplanation( U, gid ) @ #d) ⇒ ⊥) ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥) ∧
+  (∀ #j.
+    (HumanApproves( U, gid, <t, r, %a> ) @ #j) ∧
+    (HumanApprovesGrant( U, gid, <'grant', U, t, r, %a>,
+                         h(<'grant', U, t, r, %a>)
+     ) @ #j)
+   ⇒
+    ¬(#j < #i)) ∧
+  (∀ %z #j.
+    (HumanApproves( U, gid, <t, r, (%a%+%z)> ) @ #j) ∧
+    (HumanApprovesGrant( U, gid, <'grant', U, t, r, (%a%+%z)>,
+                         h(<'grant', U, t, r, (%a%+%z)>)
+     ) @ #j)
+   ⇒
+    ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma L5b_grant_max_uses:
+  all-traces
+  "∀ gid k1 k2 k3 #i #j #l.
+    (((UseGrant( gid, k1 ) @ #i) ∧ (UseGrant( gid, k2 ) @ #j)) ∧
+     (UseGrant( gid, k3 ) @ #l)) ⇒
+    (((#i = #j) ∨ (#i = #l)) ∨ (#j = #l))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ gid k1 k2 k3 #i #j #l.
+  (UseGrant( gid, k1 ) @ #i) ∧
+  (UseGrant( gid, k2 ) @ #j) ∧
+  (UseGrant( gid, k3 ) @ #l)
+ ∧
+  (¬(#i = #j)) ∧ (¬(#i = #l)) ∧ (¬(#j = #l))"
+*/
+by sorry
+
+lemma X1_L1_effect_binding_noH1:
+  all-traces
+  "∀ U aid e #i.
+    (((Execute( U, aid, e ) @ #i) ∧ (¬(∃ #o. EnrollmentOpen( ) @ #o))) ∧
+     (¬(∃ #c. CeremonyControl( U ) @ #c))) ⇒
+    ((∃ #j. (HumanApproves( U, aid, e ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Execute( U, aid, e ) @ #i)
+ ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥) ∧
+  (∀ #j. (HumanApproves( U, aid, e ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma X1_L3_agent_independence_noH1:
+  all-traces
+  "∀ U aid e #i.
+    (((Approved( U, aid, e ) @ #i) ∧ (¬(∃ #o. EnrollmentOpen( ) @ #o))) ∧
+     (¬(∃ #c. CeremonyControl( U ) @ #c))) ⇒
+    ((∃ #j. (HumanApproves( U, aid, e ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Approved( U, aid, e ) @ #i)
+ ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥) ∧
+  (∀ #j. (HumanApproves( U, aid, e ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma X2_L4c_consent_nonrepudiation_noH3:
+  all-traces
+  "∀ U aid e gd #i.
+    (((JudgeAccepts( U, aid, h(e), gd ) @ #i) ∧
+      (¬(∃ #d. DecidesOnExplanation( U, aid ) @ #d))) ∧
+     (¬(∃ #o. EnrollmentOpen( ) @ #o))) ⇒
+    ((∃ #j. (HumanApproves( U, aid, e ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e gd #i.
+  (JudgeAccepts( U, aid, h(e), gd ) @ #i)
+ ∧
+  (∀ #d. (DecidesOnExplanation( U, aid ) @ #d) ⇒ ⊥) ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #j. (HumanApproves( U, aid, e ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma X2_L1_effect_binding_noH3:
+  all-traces
+  "∀ U aid e #i.
+    (((Execute( U, aid, e ) @ #i) ∧
+      (¬(∃ #d. DecidesOnExplanation( U, aid ) @ #d))) ∧
+     (¬(∃ #o. EnrollmentOpen( ) @ #o))) ⇒
+    ((∃ #j. (HumanApproves( U, aid, e ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Execute( U, aid, e ) @ #i)
+ ∧
+  (∀ #d. (DecidesOnExplanation( U, aid ) @ #d) ⇒ ⊥) ∧
+  (∀ #o. (EnrollmentOpen( ) @ #o) ⇒ ⊥) ∧
+  (∀ #j. (HumanApproves( U, aid, e ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma X3_L1_effect_binding_open_enrollment:
+  all-traces
+  "∀ U aid e #i.
+    (((Execute( U, aid, e ) @ #i) ∧
+      (¬(∃ #d. DecidesOnExplanation( U, aid ) @ #d))) ∧
+     (¬(∃ #c. CeremonyControl( U ) @ #c))) ⇒
+    ((∃ #j. (HumanApproves( U, aid, e ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Execute( U, aid, e ) @ #i)
+ ∧
+  (∀ #d. (DecidesOnExplanation( U, aid ) @ #d) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥) ∧
+  (∀ #j. (HumanApproves( U, aid, e ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma X3_L1_sig_binding_open_enrollment:
+  all-traces
+  "∀ U aid e #i.
+    (Execute( U, aid, e ) @ #i) ⇒
+    ((∃ gd #j. (Signed( U, aid, h(e), gd ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Execute( U, aid, e ) @ #i)
+ ∧
+  (∀ gd #j. (Signed( U, aid, h(e), gd ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma X3_L4_non_repudiation_open_enrollment:
+  all-traces
+  "∀ U aid hd gd #i.
+    (JudgeAccepts( U, aid, hd, gd ) @ #i) ⇒
+    ((∃ #j. (Signed( U, aid, hd, gd ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid hd gd #i.
+  (JudgeAccepts( U, aid, hd, gd ) @ #i)
+ ∧
+  (∀ #j. (Signed( U, aid, hd, gd ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma X3_L5_grant_scope_open_enrollment:
+  all-traces
+  "∀ U gid t r %a #i.
+    (((ExecuteGrant( U, gid, <t, r, %a> ) @ #i) ∧
+      (¬(∃ #d. DecidesOnExplanation( U, gid ) @ #d))) ∧
+     (¬(∃ #c. CeremonyControl( U ) @ #c))) ⇒
+    (((∃ #j.
+        ((HumanApproves( U, gid, <t, r, %a> ) @ #j) ∧
+         (HumanApprovesGrant( U, gid, <'grant', U, t, r, %a>,
+                              h(<'grant', U, t, r, %a>)
+          ) @ #j)) ∧
+        (#j < #i)) ∨
+      (∃ %z #j.
+        ((HumanApproves( U, gid, <t, r, (%a%+%z)> ) @ #j) ∧
+         (HumanApprovesGrant( U, gid, <'grant', U, t, r, (%a%+%z)>,
+                              h(<'grant', U, t, r, (%a%+%z)>)
+          ) @ #j)) ∧
+        (#j < #i))) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U gid t r %a #i.
+  (ExecuteGrant( U, gid, <t, r, %a> ) @ #i)
+ ∧
+  (∀ #d. (DecidesOnExplanation( U, gid ) @ #d) ⇒ ⊥) ∧
+  (∀ #c. (CeremonyControl( U ) @ #c) ⇒ ⊥) ∧
+  (∀ #j.
+    (HumanApproves( U, gid, <t, r, %a> ) @ #j) ∧
+    (HumanApprovesGrant( U, gid, <'grant', U, t, r, %a>,
+                         h(<'grant', U, t, r, %a>)
+     ) @ #j)
+   ⇒
+    ¬(#j < #i)) ∧
+  (∀ %z #j.
+    (HumanApproves( U, gid, <t, r, (%a%+%z)> ) @ #j) ∧
+    (HumanApprovesGrant( U, gid, <'grant', U, t, r, (%a%+%z)>,
+                         h(<'grant', U, t, r, (%a%+%z)>)
+     ) @ #j)
+   ⇒
+    ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* All wellformedness checks were successful. */
+
+/*
+Generated from:
+Tamarin version 1.10.0
+Maude version 3.2 (unsupported)
+Git revision: cb62c305f8c8b8c1e664152aa33c95b7b8d5ef32, branch: master
+Compiled at: 2024-10-30 11:11:02.432289291 UTC
+*/
+
+end

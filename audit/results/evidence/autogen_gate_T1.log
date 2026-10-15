@@ -1,0 +1,1 @@
+approval_func called 2x in process; outputs=['ledger amount=10 to=acct-a', 'ledger amount=10 to=acct-a']

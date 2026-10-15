@@ -1,0 +1,58 @@
+% Figure 1: three ways to ask a human
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\footnotesize,
+  >={Stealth[length=4pt]},
+  box/.style={draw=inkgray,rounded corners=2pt,align=center,minimum height=8mm,minimum width=18mm,text width=17mm,inner sep=2pt,fill=white},
+  arr/.style={->,thick,inkgray},
+  lab/.style={font=\scriptsize,align=center,inner sep=1.5pt},
+  bad/.style={fill=untrustred,draw=none,rounded corners=4pt},
+  good/.style={fill=trustgreen,draw=none,rounded corners=4pt}]
+
+% ---------------- (a) in-channel confirmation
+\begin{scope}[xshift=0cm]
+  \fill[bad] (0,0) rectangle (6.6,4.2);
+  \node[box] (A) at (1.3,3.2) {Agent};
+  \node[box] (C) at (5.3,3.2) {Chat channel};
+  \node[box] (T) at (1.3,0.9) {Tool};
+  \node[box] (H) at (5.3,0.9) {User};
+  \draw[arr] ([yshift=2mm]A.east) -- node[lab,above] {``may I?''} ([yshift=2mm]C.west);
+  \draw[arr,narrorange,dashed] ([yshift=-2mm]A.east) -- node[lab,below,text=narrorange] {forged ``yes''} ([yshift=-2mm]C.west);
+  \draw[arr] (H) -- node[lab,right] {``yes''} (C);
+  \draw[arr] (A) -- node[lab,left] {runs} (T);
+  \node[font=\small\bfseries,anchor=south west] at (0,4.3) {(a) In-channel confirmation};
+\end{scope}
+
+% ---------------- (b) narrated out-of-band card
+\begin{scope}[xshift=7.1cm]
+  \fill[bad] (0,0) rectangle (2.9,4.2);
+  \fill[good] (3.1,0) rectangle (6.6,4.2);
+  \node[box] (A) at (1.3,3.2) {Agent};
+  \node[box] (P) at (5.3,3.2) {Phone shows agent's text};
+  \node[box] (T) at (1.3,0.9) {Tool};
+  \node[box] (H) at (5.3,0.9) {User taps ``ok''};
+  \draw[arr] (A) -- node[lab,above] {``email boss''} (P);
+  \draw[arr] (P) -- (H);
+  \draw[arr] (H) -- node[lab,below] {ok} (T);
+  \draw[arr,narrorange] (A) -- node[lab,left,text=narrorange] {bcc to\\attacker} (T);
+  \node[font=\small\bfseries,anchor=south west] at (0,4.3) {(b) Narrated card};
+\end{scope}
+
+% ---------------- (c) effect-bound approval
+\begin{scope}[xshift=14.2cm]
+  \fill[bad] (0,0) rectangle (1.9,4.2);
+  \fill[good] (2.1,0) rectangle (9.4,4.2);
+  \node[box,text width=13mm,minimum width=14mm] (A) at (0.95,3.2) {Agent};
+  \node[box,text width=23mm,minimum width=24mm] (G) at (4.1,3.2) {Gateway: canonical $\Desc$, digest $\dig$};
+  \node[box,text width=17mm] (P) at (7.9,3.2) {Phone: card from $\Desc$};
+  \node[box,text width=17mm] (S) at (7.9,0.9) {Passkey signs $c(\dig,\mathit{id})$};
+  \node[box,text width=23mm,minimum width=24mm] (T) at (4.1,0.9) {Execute stored $\Desc$ once};
+  \draw[arr] ([yshift=2mm]A.east) -- node[lab,above] {call} ([yshift=2mm]G.west);
+  \draw[arr,dashed] ([yshift=-2mm]G.west) -- node[lab,below] {id} ([yshift=-2mm]A.east);
+  \draw[arr] (G) -- (P);
+  \draw[arr] (P) -- (S);
+  \draw[arr] (S) -- node[lab,below] {receipt} (T);
+  \draw[arr] (G) -- node[lab,right] {stored} (T);
+  \node[font=\small\bfseries,anchor=south west] at (0,4.3) {(c) Effect-bound approval};
+\end{scope}
+\end{tikzpicture}}

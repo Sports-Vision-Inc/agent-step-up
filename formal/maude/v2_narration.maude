@@ -1,0 +1,39 @@
+*** V2 "narrated-card": out-of-band device, signature still bound to h(E),
+*** but the card text is the agent-supplied narration R, not a rendering of E.
+*** The human approves what is rendered (R). Mirrors v2_narration.spthy.
+*** Expected: L1 (human approved the executed effect) FALSIFIED, while the
+*** purely cryptographic L1sig still holds -- binding without trusted
+*** rendering is not consent.
+load common.maude
+
+mod V2-MODEL is
+  including ASU-ADV .
+  vars U A N E E2 R S : Msg . vars K ES : MsgSet .
+  vars F B Q BB XX : Nat . var L : Log .
+
+  *** Agent submits effect E and narration R (any effect description it likes).
+  crl [call] : fresh(F, B) effs(E ; R ; ES) ik(K) gw(U)
+   => fresh(s F, B) effs(E ; R ; ES) ik(K ; aid(F) ; nc(F)) gw(U)
+      pending(U, aid(F), nc(F), E) todevn(U, aid(F), nc(F), E, R)
+   if F < B .
+  crl [call-same] : fresh(F, B) effs(E ; ES) ik(K) gw(U)
+   => fresh(s F, B) effs(E ; ES) ik(K ; aid(F) ; nc(F)) gw(U)
+      pending(U, aid(F), nc(F), E) todevn(U, aid(F), nc(F), E, E)
+   if F < B .
+  *** Human approves the narration R; device signs the gateway challenge over h(E).
+  rl [approve] : todevn(U, A, N, E, R) dev(U) ik(K) log(L)
+   => dev(U) ik(K ; sig(tup(tagA, h(E), A, N), sk(U)))
+      log(L ;; approve(U, A, R) ;; signed(U, A, h(E))) .
+  crl [verify] : pending(U, A, N, E) ik(S ; K) log(L)
+   => apst(U, A, N, E) ik(S ; K) log(L ;; approved(U, A, E))
+   if S == sig(tup(tagA, h(E), A, N), sk(U)) .
+  crl [exec] : apst(U, A, N, E) ik(K) effs(E2 ; ES) budget(s Q) log(L)
+   => ik(K) effs(E2 ; ES) budget(Q) log(L ;; exec(U, A, E))
+   if memb(A, K) and h(E2) == h(E) .
+
+  op init : Nat Nat MsgSet -> Config .
+  var SC : MsgSet .
+  eq init(BB, XX, SC) = fresh(0, BB) budget(XX)
+            effs(eff(c1, x1) ; eff(c1, x2) ; eff(c2, x1)) scopes(SC)
+            ik(u ; pk(u) ; tagA) dev(u) gw(u) log(nil) .
+endm

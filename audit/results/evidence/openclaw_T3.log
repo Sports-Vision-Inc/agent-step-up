@@ -1,0 +1,2 @@
+T3: 'allow-once' single-shot resolution present in exec-approval = True; approval records carry expiry (expiresAt/expiresInDays) = True.
+T3: allow-once resolves one pending request; allow-always deliberately mints a persistent arg+cwd-scoped grant (documented, not a replay bug).

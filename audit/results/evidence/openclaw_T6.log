@@ -1,0 +1,3 @@
+T6: approval runtime de-duplicates requests by key (dedupe=True) and expires pending approvals (expiry=True).
+T6: de-dup + expiry blunt naive repeat-flooding, but no explicit per-session pending-cap or requests-per-minute lockout was located in the approval modules.
+T6: the dedupe tokens match non-approval modules too (e.g. agent-turn-service, allow-from), so a keyword match does not establish approval-flood resistance.

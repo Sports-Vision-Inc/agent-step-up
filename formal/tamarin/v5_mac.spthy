@@ -1,0 +1,104 @@
+/*
+ * V5 'symmetric MAC' STRAW MAN (no implementation counterpart; an aiAuthZ-
+ * style design, critique F9). The device authenticates approvals with a MAC
+ * under a key shared with the gateway instead of a passkey signature. The
+ * would-be judge must be HANDED the shared key -- that is what makes it a
+ * straw man, and also why P5 is unattainable.
+ * Expected: L4_non_repudiation FALSIFIED (a corrupt gateway, which holds the
+ * key, mints a MAC for a digest the user never approved). L1-L3 hold while the
+ * gateway is honest (they exempt GatewayCorrupt: the gateway is trusted for
+ * P1-P3, SPEC section 3).
+ */
+theory ASU_V5_MAC
+begin
+
+builtins: hashing
+
+functions: mac/2
+
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+restriction FirstEnrollmentOnce:
+  "All U #i #j. OnlyOnce(U) @ #i & OnlyOnce(U) @ #j ==> #i = #j"
+
+rule Register_Device:
+    [ Fr(~k) ]
+  --[ OnlyOnce($U) ]->
+    [ !Ltk($U, ~k), !GwKey($U, ~k) ]
+
+rule Compromise_Device:
+    [ !Ltk(U, sk) ]
+  --[ Compromise(U) ]->
+    [ Out(sk) ]
+
+/* Gateway corruption leaks the shared key (NOT a no-op here). */
+rule Corrupt_Gateway:
+    [ !GwKey(U, k) ]
+  --[ GatewayCorrupt(U) ]->
+    [ Out(k) ]
+
+rule Gateway_ToolCall:
+    [ In(<'call', U, e>), !GwKey(U, k), Fr(~aid) ]
+  --[ Challenge(U, ~aid, e) ]->
+    [ Pending(U, ~aid, e), ToDevice(U, ~aid, e), Out(~aid) ]
+
+rule Human_DecidesOnTrustedFields:
+    [ ToDevice(U, aid, e), !Ltk(U, sk) ]
+  --[ HumanApproves(U, aid, e), Signed(U, aid, h(e)) ]->
+    [ Out(mac(<'ASU-APPROVAL-v2', h(e), aid, 'null'>, sk)) ]
+
+rule Gateway_Verify:
+    [ Pending(U, aid, e), In(s), !GwKey(U, k) ]
+  --[ Eq(s, mac(<'ASU-APPROVAL-v2', h(e), aid, 'null'>, k)),
+      Approved(U, aid, e) ]->
+    [ ApprovedSt(U, aid, e, s) ]
+
+rule Gateway_Execute:
+    [ ApprovedSt(U, aid, e, s), In(<'exec', aid, e2>) ]
+  --[ Eq(h(e2), h(e)), Execute(U, aid, e) ]->
+    [ Out(<'receipt', U, aid, h(e), 'null', s>) ]
+
+/* Straw judge: handed the shared key. */
+rule Judge_Accept:
+    [ In(<'receipt', U, aid, hd, gd, s>), !GwKey(U, k) ]
+  --[ Eq(s, mac(<'ASU-APPROVAL-v2', hd, aid, gd>, k)),
+      JudgeAccepts(U, aid, hd) ]->
+    [ ]
+
+lemma exec_possible: exists-trace
+  "Ex U aid e #i. Execute(U, aid, e) @ #i & not (Ex #k. Compromise(U) @ #k)"
+
+lemma judge_possible: exists-trace
+  "Ex U aid hd #i. JudgeAccepts(U, aid, hd) @ #i & not (Ex #k. Compromise(U) @ #k)"
+
+lemma L1_effect_binding:
+  "All U aid e #i. Execute(U, aid, e) @ #i ==>
+     (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)
+   | (Ex #g. GatewayCorrupt(U) @ #g & #g < #i)"
+
+lemma L1_sig_binding:
+  "All U aid e #i. Execute(U, aid, e) @ #i ==>
+     (Ex #j. Signed(U, aid, h(e)) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)
+   | (Ex #g. GatewayCorrupt(U) @ #g & #g < #i)"
+
+lemma L2_single_use:
+  "All U1 U2 aid e1 e2 #i #j.
+     Execute(U1, aid, e1) @ #i & Execute(U2, aid, e2) @ #j ==> #i = #j"
+
+lemma L3_agent_independence:
+  "All U aid e #i. Approved(U, aid, e) @ #i ==>
+     (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)
+   | (Ex #g. GatewayCorrupt(U) @ #g & #g < #i)"
+
+/* GatewayCorrupt is deliberately NOT an escape: P5 must hold without
+   trusting the gateway. */
+lemma L4_non_repudiation:
+  "All U aid hd #i. JudgeAccepts(U, aid, hd) @ #i ==>
+     (Ex #j. Signed(U, aid, hd) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+end

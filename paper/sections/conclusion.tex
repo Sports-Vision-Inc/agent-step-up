@@ -1,0 +1,14 @@
+\section{Conclusion}\label{sec:conclusion}
+
+Agents ask humans before they act, and the request is treated as a second factor. We tested when it is one. Binding
+the approval to the exact effect removed every post-approval attack against \sys{} in our experiments, and AP2 and
+Microsoft's ADR~0030 implementation already do it well. Rendering is where approvals still break.
+Padding, spoofed labels and displays that do not distinguish two effects succeeded against real designs, and a
+hidden blind copy passed every model approver that read the agent's description. When the agent narrated a forged
+action, a narrated card let \adFExNarr{} of AgentDojo attacks through, while a trusted card let \adFExAsu{}
+through. Language models used as approvers caught \llmCatchNarr{} of attacks from the agent's
+description and \llmCatchCard{} from the trusted card. The second device did not change any measured outcome. Its
+value lies in the trust domain and the verifiable receipt, which the proofs establish and the experiments do not
+test. Flooding, fatigue and effects that policy allows without asking remain open. Our contribution is specific: a set of attacks, an audit and a set of measurements that show which half of agent
+MFA existing designs already address and which half remains open. The code, data, models and the scripts that produce every number in this paper are available
+at \codeurl{}.

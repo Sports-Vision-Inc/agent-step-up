@@ -1,0 +1,3 @@
+T1: provider = SyncHumanInputProvider
+T1: _prompt_input reads builtins input() from process stdin ? True
+T1: auto-answered prompt in-process, response='' (empty = accept)

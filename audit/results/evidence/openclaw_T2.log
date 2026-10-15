@@ -1,0 +1,4 @@
+T2: exec-approval module binds grants to argv and cwd (argv&cwd in source=True)
+T2: docs: allow-always grant 'tied to the command's exact arguments and current working directory' = True; a different cwd needs a separate approval.
+T2: version 2026.10.3 is past the Loopjacking representation-mismatch fix (2026.2.23 -> 2026.2.24).
+T2: exec-approvals.md:57 'does not cover inner shell executables across a remote human approval wait'; :59 'File binding is best-effort'. Binding applies to the exec class only; other approval kinds (e.g. plugin approvals) not assessed.

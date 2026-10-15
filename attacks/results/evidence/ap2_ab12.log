@@ -1,0 +1,9 @@
+AB1 over-cap violations: ['Amount 5000 exceeds maximum 1000']
+AB1 at-cap violations: []
+AB2 wrong-id/right-name: ['Payee Bob Store not in allowed list']
+AB2 right-id/fake-name: []
+AB6: constraint bound to id but sample card shows payee.name = True
+AB3 preset-payee stretch: ['Pre-set payee mismatch: expected Bob Store, got Eve']
+AB3 currency stretch: ['Currency mismatch: expected USD, got EUR']
+AB12 budget without context: ['Missing mandate context required to evaluate recurrence', 'Missing mandate context required to evaluate budget']
+AB12 two sub-cap uses, stale context: [] [] -> both allowed; 2x1004=2008c > budget 2007c

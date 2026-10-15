@@ -1,0 +1,58 @@
+\section{Discussion and Limitations}\label{sec:discussion}
+
+\subsection{What the results say about agent MFA}
+
+The simple version of the argument holds up. An approval is a second factor for an agent action when it lives
+outside the agent's reach and names the exact effect, and the two halves do different work. Binding is the
+dependable half: it removed every post-approval attack against \sys{} in our experiments, it is cheap, and AP2's
+mandates and Microsoft's ADR~0030 implementation already have it. Trusted rendering is the fragile half: it makes the largest difference when the agent
+lies (\RQ{2}, \RQ{4}), but only for an approver who reads it, and it surfaces details that cause harmless requests
+to be refused. The attacks that succeeded against real designs were mostly rendering attacks: padding, spoofed
+labels and displays that do not distinguish two effects.
+
+The second device is the part of the MFA analogy that our measurements do not support directly. A trusted
+confirmation on the agent's own host matched \sys{} in every experiment except the grant scenario, because no
+experiment compromised the host's display. What the phone adds is a different trust domain for the decision and a signature that a third
+party can check, and those are arguments from the threat model and the proofs rather than from attack success
+rates. In our reading, the second device is worth its cost when the agent's host may be
+compromised or when an approval has to be shown to someone else later, and it is not a substitute for binding or
+for a card a person can read.
+
+\subsection{Deployment guidance}
+
+Four practical points follow. First, bind the approval to a canonical digest of every argument and execute the
+stored call, not the agent's resubmission; the four runtimes in which we reproduced substitution lack exactly
+this. Second, render the card from the call, type every value, escape what cannot be seen, and list every
+recipient in the title; the agent's text, if shown at all, belongs in a collapsed box. Third, cap pending approvals
+and lock out repeated denials, and accept that this only reduces the attacker's chances. Fourth, do not let the
+agent's claim that a user asked for something decide whether to ask; in our scenarios that claim alone was enough
+to skip approval for an allowed write.
+
+\subsection{Threats to validity}
+
+\paragraph{No human data.} Every approver in this paper is a simulated oracle or a language model. The oracles'
+miss probabilities are assumptions, the exact-compare oracle is an upper bound, and the fatigue model is a
+sensitivity analysis. The language-model results describe automated reviewers, which some agents already use, and
+say nothing about how often people catch these attacks. A user study is the natural next step and is not attempted
+here.
+
+\paragraph{One scripted technique per scenario.} The compromised agent in the scripted suite uses one technique per
+scenario, and the AgentDojo replay uses the benchmark's ground-truth calls with an honest or a forged narration. A
+best-response attacker that tries every technique against each design would raise the baselines' attack success,
+narrated cards in particular, and could find attacks on \sys{} that these workloads do not contain. The red-team
+tests and the attack matrix cover the \sys{}-specific attacks separately.
+
+\paragraph{Stimuli for model approvers.} The \llmAttackStimuli{} attack and \llmBenignStimuli{} benign stimuli are
+small, hand-built and use placeholder bodies, which inflates false denies on the card (\cref{sec:rq4}). The models
+were chosen automatically on one day, the provider can route a model identifier to different backends, and a
+content filter blocked some answers. The per-model intervals in \cref{fig:llm} are wide for that reason.
+
+\paragraph{Static and derived cells.} OpenClaw was reviewed from its released bundle, not run, and the framework
+column of \cref{tab:attacks} is derived from the audit. The attack matrix was generated against an earlier
+revision of \sys{} than the one used in the experiments, but after the defense changes it tests had been merged,
+and both that run and the language-model run were made from working trees with uncommitted changes outside the
+gateway code. The proprietary coding
+agents were not audited.
+
+\paragraph{Moving targets.} Every runtime and protocol we tested is under active development, and several cells may
+change with the next release. Versions and commits are pinned in the tables and the artifact.

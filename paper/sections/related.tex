@@ -1,0 +1,88 @@
+\section{Related Work}\label{sec:related}
+
+The individual ingredients of \sys{} are prior art: digest-bound, single-use, device-signed approval of agent
+actions has been specified or built several times in 2025 and 2026. We describe that work first,
+beginning with the designs closest to \sys{}, and position this paper as an attack and measurement study around
+them. \Cref{tab:related} summarizes the comparison.
+
+\paragraph{Digest-bound approval for agents.} SUDP~\citep{yu2026sudp} is the closest design. It issues a fresh,
+authenticator-backed grant per operation using WebAuthn assertions whose challenge hashes a canonical operation,
+consumes the freshness token at redemption, and has a custodian rather than the agent perform the operation. It
+sketches proofs and lists mechanized analysis as future work, and has no empirical evaluation. Microsoft's ADR~0030
+for the Agent Governance Toolkit~\citep{microsoft2026adr0030} specifies an action binding hashed under RFC~8785,
+one-time consumption at execution, fail-closed validation and a hash-chained log, and rules out language-model
+output as a human approval stage. \sys{}'s descriptor, consumption and audit chain are essentially the same
+constructions, and we tested ADR~0030's implementation as a target instead of claiming them. What this paper adds
+around these designs is the rendering and grant attacks, the runtime audit and the measurements.
+
+\paragraph{Payment mandates and out-of-band authorization.} In AP2~\citep{ap2spec}, the user signs the cart mandate,
+typically with a hardware-backed key, after it is shown on a trusted surface, and open mandates carry constraints
+for purchases made without the user present, and Verifiable
+Intent~\citep{mastercard2026vi} records what a user authorized as a chain of signed constraints. A formal analysis
+of agent payment protocols in Tamarin found consistency issues across AP2 and three other
+protocols~\citep{jiang2026payment}, and a systematic analysis of AP2 argues that valid mandate signatures do not
+guarantee that a transaction reflects the user's intent~\citep{aviv2026ap2}, a gap that trusted rendering
+addresses only in part. CIBA with rich authorization requests~\citep{ciba2021,rfc9396} is deployed for agents as out-of-band,
+per-action approval on a separate device~\citep{auth0asyncauth}; it issues a bearer token, not a user signature
+over the details, and the details come from the requesting backend. A Visa defensive publication describes risk-triggered out-of-band
+verification with a push approval that signs a summary of the request~\citep{vyas2026visamfa}.
+
+\paragraph{Binding approval to execution.} Consent Integrity~\citep{weng2026consent} defines ``what you approve is
+what executes'' for coding agents and assumes the trusted path rather than building one. The Verifiable Action
+Card~\citep{irshad2026vac} reconstructs a card from the ground-truth browser action, renders it in browser chrome on
+the same machine, and re-checks the binding at dispatch; it has no signature and no second device.
+Loopjacking~\citep{arunkumar2026loopjacking} documents post-approval substitution in released products, which our
+audit reproduces and extends to a later Agno release. Approval
+Laundering~\citep{wang2026laundering} systematizes approval-to-execution binding failures in one coding-agent harness
+and shows that a mediator-held token removes delegation laundering but not argument laundering; we renamed our
+splitting attack ``threshold splitting'' to avoid a collision with its term. AID-Guard~\citep{tong2026aidguard}
+re-checks approved requests and provider state at commit time. EffectGuard~\citep{zhang2026effectguard} argues
+for approving resolved effects rather than tool calls, earned authority under a fixed ceiling~\citep{zhang2026earned}
+bounds what a grant can grow into, and commit-time authorization~\citep{santosgrueiro2026commit} addresses the gap
+between temporary authority and permanent effects. Faramesh~\citep{fatmi2026faramesh} places a canonical action representation behind a
+non-bypassable boundary. These works share the binding goal; this paper contributes attacks on the rendering and
+grant layers that binding alone does not cover, and measurements of how deployed runtimes behave.
+
+\paragraph{Agent identity and authorization.} The first author's earlier aiAuthZ gateway~\citep{kodathala2026aiauthz} binds user
+messages to identities and checks calls against an off-host policy; this paper adds the per-action human step and
+an asymmetric receipt that aiAuthZ left out. Related proposals include pre-action authorization
+gateways~\citep{uchibeke2026preaction}, an agent identity protocol for delegation across MCP and the Agent2Agent (A2A)
+protocol~\citep{prakash2026aip}, intent-governed tool authorization~\citep{zhu2026intent}, cryptographic authorization of
+enterprise workflows~\citep{weng2026neural,llambimorillas2026cva}, a Tamarin-verified post-quantum delegation protocol
+with escalation and rate limits~\citep{chen2026aith}, and an IETF draft that composes workload identity and OAuth for
+agents and points to CIBA for human confirmation~\citep{ietf2026klrc}.
+
+\paragraph{Failures, approvers and fatigue.} \emph{Agents of Chaos}~\citep{shapira2026agents} supplies the failure cases
+that motivate this work and that we reconstruct as A13, and a survey covers attacks on OpenClaw
+agents~\citep{wang2026openclaw}. Practitioner reports describe narration that misleads
+approvers~\citep{checkmarx2025lies} and display mismatches in coding-agent approvals~\citep{wiz2026ghostapproval}.
+\citet{wang2026reframing} frame agent security as an agent-human interaction problem and discuss approval fatigue.
+On machine approvers, SHADE-Arena evaluates language models monitoring agent
+trajectories~\citep{kutasov2025shade}, and a poster study reports that agents' justifications raise monitors'
+approval of policy-violating actions~\citep{za2025persuasion}; our \RQ{4} result is consistent with that finding and
+shows that a card rendered from the effect largely removes it, even when the agent's text remains on screen.
+
+\begin{table}[t]
+\centering\small
+\caption{Positioning against the closest work, as described in each source. ``Spec'': specified without an
+evaluation. ``Host'': left to the host or integrator. ``Others'': done for that design in separate work
+(\citealp{jiang2026payment} for proofs, \citealp{aviv2026ap2} for attacks). ``Partial'': some but not all of the
+item. n/a: outside the work's scope.}
+\label{tab:related}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}l c c c c c c c@{}}
+\toprule
+ & SUDP & ADR 0030 & AP2 & VAC & Consent Int. & Loopjacking & This paper\\
+\midrule
+Effect bound to the approval & spec & yes & yes & yes & yes & prescribed & yes\\
+Approver's signature over the effect & spec & no & yes & no & no & no & yes\\
+Approval outside the agent's machine & spec & host & yes & no & assumed & n/a & yes\\
+Card rendered from the effect & n/a & host & sample & yes & assumed & n/a & yes\\
+Mechanized proof & planned & no & others & no & no & no & yes\\
+Attacks on rendering & no & no & others & partial & partial & partial & yes\\
+Attacks on grants and limits & no & no & others & no & no & no & yes\\
+Audit of deployed runtimes & no & no & no & no & no & products & yes\\
+Language-model approvers measured & no & ruled out & no & no & no & no & yes\\
+\bottomrule
+\end{tabular}
+\end{table}

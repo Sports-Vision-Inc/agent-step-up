@@ -1,0 +1,1 @@
+T5: the resume value and approval flag are stored as plain checkpoint state (InMemorySaver / any BaseCheckpointSaver). No signature, no key, no principal binding; a checkpoint can be written by anything with saver access.

@@ -1,0 +1,53 @@
+ASU commit tested: 1138121b94f90307ba4c27636ebf359da82db14f-dirty
+tree dirty: True (asu/ dirty: False; dirty paths: attacks/DISCLOSURE_DRAFTS.md, attacks/common.py, attacks/probes/_mcp_elicit_exec.py, attacks/probes/agt_probe.py, attacks/probes/ap2_probe.py, attacks/probes/asu_probe.py, attacks/probes/frameworks_probe.py, attacks/probes/mcp_probe.py, attacks/results/evidence/agt_ab8.log, attacks/results/evidence/asu_redteam.log, attacks/results/evidence/mcp_elicit.log, attacks/results/matrix.json, attacks/results/matrix.md, attacks/run_all.py, attacks/targets.py, audit/probes/agno/probe.py, audit/probes/autogen/probe.py, audit/probes/common.py, audit/probes/crewai/probe.py, audit/probes/google_adk/probe.py, audit/probes/langgraph/probe.py, audit/probes/mcp/probe.py, audit/probes/openai_agents/probe.py, audit/probes/openclaw/probe.py, audit/probes/pydantic_ai/probe.py, audit/probes/smolagents/probe.py, audit/results/agno_sweep.json, audit/results/evidence/agno_sweep_agno_3010_T1.log, audit/results/evidence/agno_sweep_agno_3010_T2.log, audit/results/evidence/agno_sweep_agno_3010_T3.log, audit/results/evidence/agno_sweep_agno_3010_T4.log, audit/results/evidence/agno_sweep_agno_3010_T5.log, audit/results/evidence/agno_sweep_agno_3010_T6.log, audit/results/evidence/agno_sweep_agno_309_T1.log, audit/results/evidence/agno_sweep_agno_309_T2.log, audit/results/evidence/agno_sweep_agno_309_T3.log, audit/results/evidence/agno_sweep_agno_309_T4.log, audit/results/evidence/agno_sweep_agno_309_T5.log, audit/results/evidence/agno_sweep_agno_309_T6.log, audit/results/evidence/crewai_gate_T3.log)
+Every ASU cell maps to the node ids below; the cell is executed only if all of them ran.
+
+AB1: tests/redteam/test_rt_redteam_grant_stretch.py::test_grant_amount_cancellation_does_not_exceed_signed_cap
+AB2: tests/redteam/test_rt_redteam_grant_stretch.py::test_grant_decoy_account_key_does_not_redirect_payee tests/redteam/test_rt_redteam_grant_stretch.py::test_grant_decoy_account_key_does_not_redirect_email tests/redteam/test_rt_redteam_decoy_target.py::test_decoy_account_does_not_bypass_first_time_recipient tests/redteam/test_rt_redteam_decoy_target.py::test_card_title_names_the_real_recipient
+AB3: tests/redteam/test_rt_redteam_grant_stretch.py::test_grant_amount_cancellation_does_not_exceed_signed_cap tests/redteam/test_rt_redteam_grant_stretch.py::test_grant_decoy_account_key_does_not_redirect_payee tests/redteam/test_rt_redteam_grant_stretch.py::test_grant_decoy_account_key_does_not_redirect_email
+AB4: tests/redteam/test_rt_redteam_card_render.py::test_blank_padding_is_escaped_or_flagged tests/redteam/test_rt_redteam_card_render.py::test_shell_interpreter_flagged_for_any_shell
+AB5: tests/redteam/test_rt_redteam_card_render.py::test_agent_arg_names_cannot_impersonate_trusted_labels
+AB6: tests/redteam/test_rt_formal_render_injective.py::test_distinct_effects_render_distinct_cards tests/redteam/test_rt_formal_render_injective.py::test_bool_vs_string_render_distinct_cards
+AB7: tests/redteam/test_rt_redteam_enrollment.py::test_agent_cannot_enroll_passkey_for_provisioned_user tests/redteam/test_rt_crypto_enroll_squat.py::test_agent_cannot_enroll_own_passkey_and_self_approve tests/redteam/test_rt_formal_open_enrollment.py::test_default_config_refuses_unauthenticated_first_enrollment
+AB8: tests/redteam/test_rt_crypto_challenge_ambiguity.py::test_receipt_not_valid_for_resplit_id_and_nonce tests/redteam/test_rt_formal_challenge_split.py::test_positive_control_receipt_verifies tests/redteam/test_rt_formal_challenge_split.py::test_receipt_does_not_verify_for_resplit_approval_id_and_nonce
+AB9: tests/test_attacks_asu_live.py::test_ab9_agent_cannot_reach_the_ceremony tests/test_attacks_asu_live.py::test_ab9_consent_needs_honest_rendering_origin_by_design
+AB10: tests/test_attacks_asu_live.py::test_ab10_post_approval_substitution_is_409 tests/test_attacks_asu_live.py::test_ab10_cross_session_use_of_an_approval_is_refused
+AB11: tests/test_attacks_asu_live.py::test_ab11_flood_within_one_session_is_rate_limited tests/test_attacks_asu_live.py::test_ab11_flood_across_a_users_sessions_is_capped_per_user tests/test_attacks_asu_live.py::test_ab11_repeated_denials_lock_the_session_out
+AB12: tests/test_attacks_asu_live.py::test_ab12_threshold_splitting_hits_the_aggregate_and_grant_caps
+
+pytest -rA output:
+........................                                                 [100%]
+=============================== warnings summary ===============================
+../../../usr/local/lib/python3.13/dist-packages/starlette/testclient.py:53
+  /usr/local/lib/python3.13/dist-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/redteam/test_rt_crypto_challenge_ambiguity.py::test_receipt_not_valid_for_resplit_id_and_nonce
+PASSED tests/redteam/test_rt_crypto_enroll_squat.py::test_agent_cannot_enroll_own_passkey_and_self_approve
+PASSED tests/redteam/test_rt_formal_challenge_split.py::test_positive_control_receipt_verifies
+PASSED tests/redteam/test_rt_formal_challenge_split.py::test_receipt_does_not_verify_for_resplit_approval_id_and_nonce
+PASSED tests/redteam/test_rt_formal_open_enrollment.py::test_default_config_refuses_unauthenticated_first_enrollment
+PASSED tests/redteam/test_rt_formal_render_injective.py::test_bool_vs_string_render_distinct_cards
+PASSED tests/redteam/test_rt_formal_render_injective.py::test_distinct_effects_render_distinct_cards
+PASSED tests/redteam/test_rt_redteam_card_render.py::test_agent_arg_names_cannot_impersonate_trusted_labels
+PASSED tests/redteam/test_rt_redteam_card_render.py::test_blank_padding_is_escaped_or_flagged
+PASSED tests/redteam/test_rt_redteam_card_render.py::test_shell_interpreter_flagged_for_any_shell
+PASSED tests/redteam/test_rt_redteam_decoy_target.py::test_card_title_names_the_real_recipient
+PASSED tests/redteam/test_rt_redteam_decoy_target.py::test_decoy_account_does_not_bypass_first_time_recipient
+PASSED tests/redteam/test_rt_redteam_enrollment.py::test_agent_cannot_enroll_passkey_for_provisioned_user
+PASSED tests/redteam/test_rt_redteam_grant_stretch.py::test_grant_amount_cancellation_does_not_exceed_signed_cap
+PASSED tests/redteam/test_rt_redteam_grant_stretch.py::test_grant_decoy_account_key_does_not_redirect_email
+PASSED tests/redteam/test_rt_redteam_grant_stretch.py::test_grant_decoy_account_key_does_not_redirect_payee
+PASSED tests/test_attacks_asu_live.py::test_ab10_cross_session_use_of_an_approval_is_refused
+PASSED tests/test_attacks_asu_live.py::test_ab10_post_approval_substitution_is_409
+PASSED tests/test_attacks_asu_live.py::test_ab11_flood_across_a_users_sessions_is_capped_per_user
+PASSED tests/test_attacks_asu_live.py::test_ab11_flood_within_one_session_is_rate_limited
+PASSED tests/test_attacks_asu_live.py::test_ab11_repeated_denials_lock_the_session_out
+PASSED tests/test_attacks_asu_live.py::test_ab12_threshold_splitting_hits_the_aggregate_and_grant_caps
+PASSED tests/test_attacks_asu_live.py::test_ab9_agent_cannot_reach_the_ceremony
+PASSED tests/test_attacks_asu_live.py::test_ab9_consent_needs_honest_rendering_origin_by_design
+24 passed, 1 warning in 7.87s
+

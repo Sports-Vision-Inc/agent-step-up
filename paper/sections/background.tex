@@ -1,0 +1,165 @@
+\section{Background and Threat Model}\label{sec:background}
+
+\subsection{From human MFA to agent approval}\label{sec:mfa}
+
+\paragraph{Independence, not count.} Classical authentication combines things a user knows, has and is, but
+the security argument rests on \emph{independence}: obtaining one factor should give the attacker no advantage
+toward the others. Independence is a property of where a factor lives and who can drive its ceremony, not of
+its type. Push notifications that an attacker can trigger at will invite fatigue attacks in which the user
+eventually approves a request they did not start. The agent analog is an agent that floods its owner with
+approval requests (\AB{11}); approval fatigue in agents is already recognized as a threat~\citep{wang2026reframing}.
+
+\paragraph{Dynamic linking.} Step-up authentication asks for an extra factor only for risky transactions. For
+remote payments, the European technical standards require that the authentication code be linked to the amount
+and the payee, that the payer see both during authentication, and that any change to either invalidate the
+code~\citep{psd2rts2018}. This is the template for what we call the \emph{effect factor}: an approval must commit
+to the complete effect, not to the session in which it happens.
+
+\paragraph{WebAuthn.} The W3C Web Authentication standard~\citep{webauthn2} lets a relying party register a
+public-key credential, a passkey, held by an authenticator on the user's device. To authenticate, the relying
+party sends a challenge and the authenticator signs its own authenticator data together with a hash of the
+client data, which contains the challenge and the origin. The signature is asymmetric and scoped to the relying
+party, so anyone holding the public key can verify an assertion and no observer of earlier assertions can make
+a new one. \sys{} places a commitment to the effect digest in the challenge, so that a standard passkey assertion
+also serves as a signature over the effect. One limitation carries through the whole paper: the authenticator
+signs the challenge but does not display it, so what the user \emph{sees} is whatever the page shows.
+
+\paragraph{What you see is what you sign.} The requirement that a signer is shown exactly what the signature
+covers fails whenever the display is controlled by a party that benefits from a mismatch. The classical remedy
+is a trusted path from trusted code to the human. For agents, the untrusted party is the agent itself, which
+usually owns the chat or terminal where approvals are shown. \Cref{tab:mapping} summarizes the correspondence we
+use throughout.
+
+\begin{table}[t]
+\centering\small
+\caption{Human MFA concepts and their analog for agent actions. The right column names the property in
+\cref{sec:properties} and the attack in \cref{sec:attacks} that tests it.}
+\label{tab:mapping}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.27\textwidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.2\textwidth}@{}}
+\toprule
+Human MFA & Agent analog & Property, attack\\
+\midrule
+Factors in independent places & The approval is produced in a trust domain the agent cannot reach (a gateway host and the user's phone) & \Prop{1}; \AB{7}, \AB{9}\\
+Step-up for risky transactions & Policy returns \code{challenge} for consequential effects & \Prop{7}; \AB{12}\\
+Dynamic linking to amount and payee & The signed challenge commits to the digest of the canonical effect & \Prop{2}; \AB{1}, \AB{2}, \AB{10}\\
+Authenticator shows the transaction & The card is rendered by trusted code from the effect, never from agent text & \Prop{4}; \AB{4} to \AB{6}\\
+One-time codes expire & Approvals carry a nonce and an expiry and are consumed once & \Prop{3}\\
+Push bombing, MFA fatigue & Approval flooding by a compromised agent & \Prop{7}; \AB{11}\\
+Signed transaction record & A receipt any third party can verify with the user's public key & \Prop{5}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{System model and properties}\label{sec:properties}
+
+A user $U$ owns an authenticator device $D$ holding a passkey $(sk_U, pk_U)$. An agent $A$ comprises the model,
+its context, its tools, its runtime and the host it runs on. A gateway $G$ runs on a separate host and mediates
+every consequential effect on resources $R$ such as mail servers, file systems and payment endpoints. Each effect
+is caused by a tool call $q=(\mathit{tool},\mathit{args},\mathit{ctx})$, where $\mathit{ctx}$ carries the
+principal, session, agent identifier, claimed origin and time. A canonicalization function maps a call to an
+\emph{effect descriptor} $\Desc=\mathsf{Canon}(q)$ with digest $\dig=\Hash(\JCS(\Desc))$, where $\Hash$ is
+SHA-256 and $\JCS$ is the JSON Canonicalization Scheme (JCS) of RFC~8785~\citep{rfc8785}. Agent free text, the
+``explanation'', is never part of $\Desc$.
+
+Let $\Reach(A)$ be the set of positions the agent controls: its process memory and context, every tool it can
+invoke and every output it reads, every surface it reads or writes including the chat with $U$, its host, and
+any credential stored there. An approval mechanism is a triple of procedures: a prompt that shows the user a
+presentation $\pi$, a response the user produces, and an acceptance check that decides whether a call may run.
+
+\begin{definition}[Agent-reachable capabilities]\label{def:caps}
+For an adversary controlling exactly $\Reach(A)$, an approval factor is \emph{readable} if the adversary can
+observe an accepted response or reconstruct one; \emph{forgeable} if it can compute an accepted response without
+$U$; \emph{answerable} if the response channel intersects $\Reach(A)$; \emph{overlayable} if any part of $\pi$
+outside a labeled untrusted region depends on values the adversary chooses other than through $\Desc$;
+\emph{substitutable} if a response produced for $\Desc$ lets it execute $\Desc'\neq\Desc$; and
+\emph{replayable} if one response causes two executions or an execution in another session.
+\end{definition}
+
+\begin{definition}[Independent effect factor]\label{def:independence}
+A mechanism provides an \emph{agent-independent effect factor} if, for every efficient adversary controlling
+$\Reach(A)$ and an honest $U$, the probability that some $\Desc^\ast$ executes without $U$ having approved
+$\Desc^\ast$, or a grant whose signed constraints $\Desc^\ast$ satisfies, is negligible. A mechanism with any
+capability of \cref{def:caps} is \emph{single-factor with respect to the agent}.
+\end{definition}
+
+Independence is relative to $\Reach(A)$, not to the type of factor: a passkey on the agent's own host, or a time-based one-time password (TOTP)
+secret~\citep{rfc6238} the agent can read, is a possession factor in the human sense but gives no independence here. It is also
+necessary rather than sufficient, because a human can still approve a harmful effect that is displayed
+truthfully. We use the following seven properties throughout.
+
+\begin{property}[\Prop{1}, agent independence]\label{prop:p1}
+No position in $\Reach(A)$ can read, forge, answer, overlay or replay the approval factor.
+\end{property}
+\begin{property}[\Prop{2}, effect binding]\label{prop:p2}
+If $\Desc'$ executes under approval $ap$, then $\dig(\Desc')=ap.\dig$ and $U$'s signature covers a challenge that
+commits to $ap.\dig$.
+\end{property}
+\begin{property}[\Prop{3}, freshness and single use]\label{prop:p3}
+Each approval carries a nonce and an expiry, is consumed atomically, and causes at most one execution.
+\end{property}
+\begin{property}[\Prop{4}, trusted rendering]\label{prop:p4}
+Every element of the presentation is computed by trusted code from $\Desc$, except one region labeled as the
+agent's untrusted explanation, and distinct descriptors render as distinct cards.
+\end{property}
+\begin{property}[\Prop{5}, non-repudiation]\label{prop:p5}
+A third party holding only $pk_U$ can verify that $U$'s authenticator signed digest $\dig$ for approval
+$\mathit{id}$. The stronger, consent-level claim that $U$ \emph{saw} $\Desc$ holds only under an honest rendering
+origin (\Hyp{3} in \cref{sec:formal}).
+\end{property}
+\begin{property}[\Prop{6}, scope integrity]\label{prop:p6}
+A delegated grant authorizes only effects that match every argument the user approved, except fields the signed
+grant explicitly frees with a bound, at most $n$ times and before its expiry.
+\end{property}
+\begin{property}[\Prop{7}, flood resistance]\label{prop:p7}
+An agent cannot obtain approval by volume: requests are rate limited, pending approvals are capped per session and
+per user, repeated denials lock the requester out, and duplicates are merged.
+\end{property}
+
+\subsection{Threat model}\label{sec:threat}
+
+\paragraph{Trust boundary.} The gateway host (including its policy, executor credentials and store), the user's
+device and its authenticator are trusted. The agent and everything in $\Reach(A)$ are not.
+
+\paragraph{Attacker capabilities.} The agent is fully adversarial. It chooses every tool call and every word of
+narration, may retry, flood, split an effect into pieces, substitute arguments after approval, replay anything it
+has seen, open many sessions and act without a human turn. It can impersonate the owner on any channel it can
+reach, as in Case~\#8, and answer verification questions on such channels, as in Case~\#15.
+
+\paragraph{The human.} $U$ is honest but may be inattentive. Because we have no human-subjects data, we model the
+approver in two ways: by simulated oracles (\cref{sec:evalsetup}), and by language models acting as the
+automated approvers that some deployed agents already use~\citep{anthropic2026automode}. Neither is evidence about people.
+
+\paragraph{Out of scope.} A human who knowingly approves a harmful action that is displayed truthfully;
+information leaking through allowed reads; sandbox escapes that reach $R$ without passing through $G$; and
+compromise of the user's phone.
+
+\subsection{Approval designs compared}\label{sec:modes}
+
+\Cref{tab:modes} lists the designs we compare. Each baseline is implemented as a mode of the same gateway, so that
+the only difference between modes is the property each one omits. Two of them deserve a note.
+\code{host-confirm} is a confirmation rendered by trusted code from the descriptor on the agent's own host, with
+no second device and no signature. It isolates what the second device adds. \code{txn-sign} shows only the payee
+and amount, in the manner of classical transaction signing, while the gateway still binds every argument. It
+isolates what partial display costs.
+
+\begin{table}[t]
+\centering\small
+\caption{Approval designs, implemented as modes of one gateway. ``Omits'' is the property each design lacks by
+construction; measured outcomes are in \cref{sec:eval}.}
+\label{tab:modes}
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X l@{}}
+\toprule
+Mode & What the human sees and does & Omits\\
+\midrule
+\code{none} & Nothing; policy allows the call & all\\
+\code{chat-confirm} & A question and a ``yes'' in the agent's own channel & \Prop{1}\\
+\code{narrated-card} & An out-of-band card whose text the agent supplies; the gateway still binds the call & \Prop{4}\\
+\code{unbound} & An out-of-band passkey approval of the run or session, not of $\dig$ & \Prop{2}, \Prop{3}\\
+\code{totp} & A one-time code; no binding to the effect; relayable & \Prop{2}, \Prop{5}\\
+\code{txn-sign} & A signed approval of payee and amount only; other arguments hidden & \Prop{4} (partial)\\
+\code{host-confirm} & A trusted card on the agent's host; no second device, no signature & \Prop{1} under host compromise, \Prop{5}\\
+\code{asu} & The full reference design of \cref{sec:design} & none\\
+\code{asu-no-expl} & As \code{asu}, with the agent's explanation removed from the card & none\\
+\bottomrule
+\end{tabularx}
+\end{table}

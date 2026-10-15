@@ -1,0 +1,2 @@
+T3 same_call (remote continue payload POSTed twice): executions=2 (first=1). On this version a re-POST DOES re-execute the call.
+T3 rollback (continue a deep-copied paused run): ledger=[{'amount': 5, 'to': 'bob'}, {'amount': 5, 'to': 'bob'}]

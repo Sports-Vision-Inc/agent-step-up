@@ -1,0 +1,4 @@
+T2 L2 (remote continue, client-supplied tools JSON with a different field set): executed_B=True (shown=[{'amount': 10, 'to': 'acct-a'}]).
+T2 L3 (after a legitimate admin approval, the requester's continue still substitutes tool_args): executed_B_after_admin=True.
+T2 L1 (in-process mutation of ToolExecution.tool_args) also substitutes but is not scored as a gap (the in-process holder is the approver).
+T2 root cause: agno/agent/_run.py::_apply_requirement_tools replaces the stored run_response.tools with the client-supplied ToolExecutions (tool_args included); the team path (_merge_requirement_decision) keeps only decision fields, a fix not applied to single agents.

@@ -1,0 +1,1 @@
+T6 (single run): one model turn emitted 20 tool calls -> 20 pending approval interruptions in ONE run, no throttle/cap.

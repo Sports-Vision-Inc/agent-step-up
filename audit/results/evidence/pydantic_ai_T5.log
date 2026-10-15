@@ -1,0 +1,1 @@
+T5: ToolApproved/ToolDenied are plain dataclasses; DeferredToolResults carries no signature, key, or principal. Not third-party verifiable.

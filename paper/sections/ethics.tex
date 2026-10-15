@@ -1,0 +1,23 @@
+\phantomsection
+\section*{Ethics and Availability}\label{sec:ethics}
+\addcontentsline{toc}{section}{Ethics and Availability}
+
+All attacks were run locally against the documented, intended use of open-source code, with placeholder data and
+mock resources. No real service, account, credential or person was contacted, and no third-party system was
+tested in production. The study involved no human subjects: every approver is a simulated oracle or a language
+model, which is why the paper makes no claim about human behavior. Language models were queried through a
+commercial routing service on the authors' account, with a spending cap enforced by the experiment runner, and the
+prompts contain no personal data.
+
+The findings that concern third-party projects are the AP2 sample card and budget accumulation, rendering and
+binding in MCP form-mode elicitation, and post-approval substitution in the latest Agno release. We did not
+contact the maintainers. The substitution class in Agno was reported publicly by \citet{arunkumar2026loopjacking};
+the AP2 observations concern sample code and integrator documentation; and the MCP behavior follows the
+specification, which already directs sensitive interactions to its URL mode. The paper describes all of them as
+design observations and gives no exploit code for deployed services.
+
+The gateway, web authenticator, Tamarin models, audit and attack probes, experiment harness, raw results and the
+script that generates every figure, table and in-text number (\cref{app:repro}) are available at
+\codeurl{}. The scripted and AgentDojo experiments were run from a clean tree at commit \code{a0f304a}. The
+language-model approvers were run at commit \code{f358b1a}, and the attack matrix at commit \code{1138121}; both
+trees had uncommitted changes outside the gateway code, which the result files record.

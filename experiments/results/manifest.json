@@ -1,0 +1,62 @@
+{
+ "started_at": "2026-10-14T15:33:38Z",
+ "command": "/Users/varunkodathala/Downloads/research-mfa-ai/agent-mfa-v4/experiments/run_all.py --workers 8",
+ "quick": false,
+ "seed": 20261013,
+ "versions": {
+  "python": "3.13.13",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "agentdojo": "0.1.35",
+  "fastapi": "0.143.1",
+  "starlette": "1.8.0",
+  "webauthn": "3.0.1",
+  "cryptography": "50.0.2",
+  "pyotp": "2.10.0",
+  "cbor2": "6.1.5",
+  "pyyaml": "6.0.3",
+  "matplotlib": "3.11.2",
+  "asu-gateway": "0.2.0"
+ },
+ "steps": {
+  "scenarios": {
+   "wall_s": 446.7,
+   "n_trials": 27108,
+   "n_errors": 0
+  },
+  "agentdojo": {
+   "wall_s": 502.8,
+   "n_trials": 26568,
+   "n_errors": 0
+  },
+  "fatigue": {
+   "wall_s": 171.9,
+   "n_trials": 21840
+  },
+  "latency": {
+   "wall_s": 3.9
+  }
+ },
+ "git_commit": "a0f304a324f8010f999d9c0cdf467b8e8957c515",
+ "git_dirty": false,
+ "git_status_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+ "git_dirty_paths_experiments_asu": [],
+ "finished_at": "2026-10-14T15:52:26Z",
+ "figures": [
+  "figures/scenario_asr_diligent.png",
+  "figures/scenario_asr_diligent.pdf",
+  "figures/scenario_asr_perceptual.png",
+  "figures/scenario_asr_perceptual.pdf",
+  "figures/scenario_asr_careless_0p3.png",
+  "figures/scenario_asr_careless_0p3.pdf",
+  "figures/scenario_asr_fatigued_0p1_0p9.png",
+  "figures/scenario_asr_fatigued_0p1_0p9.pdf",
+  "figures/scenario_asr_narration_trusting.png",
+  "figures/scenario_asr_narration_trusting.pdf",
+  "figures/agentdojo_asr_by_mode.png",
+  "figures/agentdojo_asr_by_mode.pdf",
+  "figures/fatigue_frontier.png",
+  "figures/fatigue_frontier.pdf",
+  "figures/latency.png",
+  "figures/latency.pdf"
+ ]
+}

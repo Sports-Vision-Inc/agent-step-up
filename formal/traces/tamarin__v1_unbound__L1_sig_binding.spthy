@@ -1,0 +1,206 @@
+theory ASU_V1_Unbound begin
+
+// Function signature and definition of the equational theory E
+
+functions: fst/1, h/1, pair/2, pk/1, sign/2, snd/1, true/0, verify/3
+equations:
+    fst(<x.1, x.2>) = x.1,
+    snd(<x.1, x.2>) = x.2,
+    verify(sign(x.1, x.2), x.1, pk(x.2)) = true
+
+
+
+
+
+
+
+
+
+restriction Equality:
+  "∀ x y #i. (Eq( x, y ) @ #i) ⇒ (x = y)"
+  // safety formula
+
+restriction FirstEnrollmentOnce:
+  "∀ U #i #j. ((OnlyOnce( U ) @ #i) ∧ (OnlyOnce( U ) @ #j)) ⇒ (#i = #j)"
+  // safety formula
+
+rule (modulo E) Register_Device:
+   [ Fr( ~sk ) ]
+  --[ OnlyOnce( $U ), Register( $U, pk(~sk) ) ]->
+   [ !Ltk( $U, ~sk ), !Pk( $U, pk(~sk) ), Out( pk(~sk) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Compromise_Device:
+   [ !Ltk( U, sk ) ] --[ Compromise( U ) ]-> [ Out( sk ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Gateway_ToolCall:
+   [ In( <'call', U, e> ), !Pk( U, pkU ), Fr( ~aid ) ]
+  --[ Challenge( U, ~aid, e ) ]->
+   [ Pending( U, ~aid, e ), ToDevice( U, ~aid, e ), Out( ~aid ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Device_Approve:
+   [ ToDevice( U, aid, e ), !Ltk( U, sk ) ]
+  --[ HumanApproves( U, aid, e ), Signed( U, aid, 'session' ) ]->
+   [ Out( sign(<'ASU-SESSION', U, aid>, sk) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Gateway_Verify:
+   [ Pending( U, aid, e ), In( s ), !Pk( U, pkU ) ]
+  --[
+  Eq( verify(s, <'ASU-SESSION', U, aid>, pkU), true ),
+  Approved( U, aid, e )
+  ]->
+   [ ApprovedSt( U, aid, e ) ]
+
+  /*
+  rule (modulo AC) Gateway_Verify:
+     [ Pending( U, aid, e ), In( s ), !Pk( U, pkU ) ]
+    --[ Eq( z, true ), Approved( U, aid, e ) ]->
+     [ ApprovedSt( U, aid, e ) ]
+    variants (modulo AC)
+    1. U     = U.7
+       aid   = aid.7
+       pkU   = pkU.7
+       s     = s.7
+       z     = verify(s.7, <'ASU-SESSION', U.7, aid.7>, pkU.7)
+    
+    2. U     = x.7
+       aid   = x.8
+       pkU   = pk(x.10)
+       s     = sign(<'ASU-SESSION', x.7, x.8>, x.10)
+       z     = true
+  */
+
+rule (modulo E) Gateway_Execute:
+   [ ApprovedSt( U, aid, e ), In( <'exec', aid, e2> ) ]
+  --[ Execute( U, aid, e2 ) ]->
+   [ !RunApproved( U ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Gateway_RunApproved_Execute:
+   [ !RunApproved( U ), In( <'call', U, e3> ), Fr( ~aid ) ]
+  --[ Execute( U, ~aid, e3 ) ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+lemma exec_possible:
+  exists-trace
+  "∃ U aid e #i.
+    (Execute( U, aid, e ) @ #i) ∧ (¬(∃ #k. Compromise( U ) @ #k))"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ U aid e #i.
+  (Execute( U, aid, e ) @ #i) ∧ ∀ #k. (Compromise( U ) @ #k) ⇒ ⊥"
+*/
+by sorry
+
+lemma L1_effect_binding:
+  all-traces
+  "∀ U aid e #i.
+    (Execute( U, aid, e ) @ #i) ⇒
+    ((∃ #j. (HumanApproves( U, aid, e ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Execute( U, aid, e ) @ #i)
+ ∧
+  (∀ #j. (HumanApproves( U, aid, e ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+lemma L1_sig_binding:
+  all-traces
+  "∀ U aid e #i.
+    (Execute( U, aid, e ) @ #i) ⇒
+    ((∃ #j. (Signed( U, aid, h(e) ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Execute( U, aid, e ) @ #i)
+ ∧
+  (∀ #j. (Signed( U, aid, h(e) ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+simplify
+solve( Execute( U, aid, e ) @ #i )
+  case Gateway_Execute
+  solve( ApprovedSt( U, aid, e ) ▶₀ #i )
+    case Gateway_Verify
+    solve( !KU( sign(<'ASU-SESSION', $U, ~aid>, ~sk) ) @ #vk.5 )
+      case Device_Approve
+      solve( !KU( ~aid ) @ #vk.4 )
+        case Gateway_ToolCall
+        SOLVED // trace found
+      qed
+    qed
+  qed
+qed
+
+lemma L2_single_use:
+  all-traces
+  "∀ U1 U2 aid e1 e2 #i #j.
+    ((Execute( U1, aid, e1 ) @ #i) ∧ (Execute( U2, aid, e2 ) @ #j)) ⇒
+    (#i = #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U1 U2 aid e1 e2 #i #j.
+  (Execute( U1, aid, e1 ) @ #i) ∧ (Execute( U2, aid, e2 ) @ #j)
+ ∧
+  ¬(#i = #j)"
+*/
+by sorry
+
+lemma L3_agent_independence:
+  all-traces
+  "∀ U aid e #i.
+    (Approved( U, aid, e ) @ #i) ⇒
+    ((∃ #j. (HumanApproves( U, aid, e ) @ #j) ∧ (#j < #i)) ∨
+     (∃ #k. (Compromise( U ) @ #k) ∧ (#k < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ U aid e #i.
+  (Approved( U, aid, e ) @ #i)
+ ∧
+  (∀ #j. (HumanApproves( U, aid, e ) @ #j) ⇒ ¬(#j < #i)) ∧
+  (∀ #k. (Compromise( U ) @ #k) ⇒ ¬(#k < #i))"
+*/
+by sorry
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* All wellformedness checks were successful. */
+
+/*
+Generated from:
+Tamarin version 1.10.0
+Maude version 3.2 (unsupported)
+Git revision: cb62c305f8c8b8c1e664152aa33c95b7b8d5ef32, branch: master
+Compiled at: 2024-10-30 11:11:02.432289291 UTC
+*/
+
+end

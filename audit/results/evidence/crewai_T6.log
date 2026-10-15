@@ -1,0 +1,1 @@
+T6: human_input triggers once per task completion; there is no rate limit or pending-cap primitive, and the feedback loop itself re-prompts unboundedly until an empty line is given.

@@ -1,0 +1,1 @@
+two distinct tool calls through before_tool_call hooks raised 2 human prompts (one per call); the decision is per-call and not a reusable token.

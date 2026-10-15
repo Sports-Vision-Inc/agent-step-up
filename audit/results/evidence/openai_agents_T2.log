@@ -1,0 +1,2 @@
+T2: tampered 10 pending call-arg site(s) in serialized approved state
+T2: runtime REJECTED tampered state: ModelBehaviorError: Model reused a tool call ID for a different invocation. Use a unique call ID for each tool invocation.

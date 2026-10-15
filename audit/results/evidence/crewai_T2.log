@@ -1,0 +1,1 @@
+T2: human_input runs AFTER the task's Final Result is produced and gathers free-text feedback; it gates no specific tool call and carries no effect descriptor. It is a feedback primitive, not an approval — reported n/a (the before_tool_call gate is the approval mechanism; see the gate row).

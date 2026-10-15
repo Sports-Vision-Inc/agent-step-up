@@ -1,0 +1,60 @@
+# C6' machine-approver experiment (experiments/live/llm_approver.py; D-002 (a)).
+#
+# One command on a Mac (from the repository root, after `pip install -e .`):
+#
+#   echo 'OPENROUTER_API_KEY=sk-or-...' >> .env   # once; the key is never printed or written
+#   python3 -m experiments.live.llm_approver run --config experiments/live/llm_approver.example.yaml
+#
+# Try it first without network or key (fake model; output is NOT a result):
+#   python3 -m experiments.live.llm_approver run --config experiments/live/llm_approver.example.yaml --dry-run
+#
+# Outputs: experiments/results/live_llm_approver_<UTC stamp>.{json,md}; responses are cached in
+# experiments/results/live_llm_approver_cache.jsonl keyed by (model, prompt hash), so an interrupted or
+# budget-capped run can simply be re-run and only pays for the missing calls.
+
+openrouter:
+  base_url: https://openrouter.ai/api/v1
+  api_key_env: OPENROUTER_API_KEY   # environment variable, or the same name in ./.env
+  app_title: asu-machine-approver-eval
+  timeout_s: 120
+  fetch_prices: true                # GET /models (public) for USD prices; manual prices below are fallback only
+
+# models: auto -> at run time, read OpenRouter's public model catalog and, for each vendor below, use
+# the NEWEST text model priced above small_max_in_per_mtok ("frontier") plus the newest one at or
+# below it ("small"). The chosen ids and their release dates are printed before any paid call and
+# recorded in the results. Any id that fails its first (preflight) call is dropped in seconds.
+# To pin an exact list instead, replace `auto` with a list like:
+#   models:
+#     - {id: openai/<model>, max_tokens: 2000}
+models: auto
+auto_models:
+  vendors: [openai, anthropic, google, x-ai, deepseek, qwen, mistralai, moonshotai, meta-llama]
+  include_small: true
+  small_max_in_per_mtok: 0.6
+  exclude: []          # substrings to skip, e.g. [preview]
+  include: []          # extra exact ids to add
+
+# Applied to every model unless the model entry overrides it. Reasoning models think before
+# answering; "low" keeps that short and cheap. Providers that do not support it ignore it.
+model_defaults:
+  max_tokens: 2000
+  extra: {reasoning: {effort: low}}
+
+concurrency: 16            # calls in flight overall
+per_model_concurrency: 6   # calls in flight per model (stays under provider rate limits)
+
+budget_usd: 40.00        # hard cap over the whole run (all models); calls that could exceed it are not made
+max_tokens: 2000         # per completion fallback (model_defaults above wins)
+seed: 20261013           # item order and answer-option order per model derive from (seed, model id)
+
+# t0: temperature 0, one sample = a single deterministic run (McNemar tests use this pass).
+# t07: temperature 0.7, n samples for stability. EXP-10 recommends >= 5; 3 is the default budget choice.
+passes:
+  - {name: t0,  temperature: 0.0, samples: 1}
+  - {name: t07, temperature: 0.7, samples: 3}
+
+conditions: [narrated, card, card_no_expl]
+stimuli_file: experiments/live/stimuli_llm_approver.json   # regenerate: python3 -m experiments.live.llm_approver make-stimuli
+results_dir: experiments/results
+cache_file: experiments/results/live_llm_approver_cache.jsonl
+chars_per_token_estimate: 3.0   # conservative pre-call cost estimate for the budget check

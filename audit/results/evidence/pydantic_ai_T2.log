@@ -1,0 +1,2 @@
+T2 L2: approver shown args = {'amount': 10, 'to': 'alice'}
+T2 L2: ledger after caller-supplied-history edit + plain ToolApproved() = [{'amount': 9999, 'to': 'mallory'}]

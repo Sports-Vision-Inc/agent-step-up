@@ -1,0 +1,110 @@
+\section{Introduction}\label{sec:intro}
+
+\subsection{The problem: an approval the agent can reach is not a second factor}
+
+Tool-using agents act with their owner's authority. They read and send email, move money, edit files and run
+shell commands, and the industry's answer to the risk is an approval step: before a consequential call executes,
+the agent pauses and a person, or increasingly an automated approver, clicks \emph{approve}. 15 of 21 production agent systems surveyed
+by \citet{wang2026reframing} rely on some form of runtime approval, and coding agents, payment agents and
+browser agents all ship one. The step is usually described, and often marketed, as the agent equivalent of
+multi-factor authentication (MFA).
+
+Human MFA gives a precise test for that claim. A second factor is valuable
+because it lives somewhere the attacker of the first factor cannot reach: a password and a one-time code typed
+into the same phishing page are, against that phisher, one factor. Payment regulation added a second lesson.
+Under the European rules for strong customer authentication, the code a payer enters must be
+\emph{dynamically linked} to the amount and the payee the payer sees, so that an approval cannot be spent on a
+different transaction~\citep{psd2rts2018}. Carried over to agents, the two lessons become one criterion,
+which this paper tests:
+\begin{quote}
+\emph{An approval protects an agent action only if compromising the agent cannot produce it, and only if it
+commits to exactly the action that executes.}
+\end{quote}
+Most deployed approvals fail one half of this criterion. A ``reply yes to continue'' in the agent's chat is
+rendered by the agent and can be answered by anyone who speaks in that channel. An out-of-band card whose text
+the agent writes moves the click off-host but leaves the \emph{content} in the agent's hands, so the human
+approves a description rather than an action. A one-time code is out-of-band but says nothing about what it
+approves and can be relayed to any call. An approval that names a run, a tool or a session rather than the
+exact arguments can be reused after it is granted. In each case the approval's existence is outside the agent,
+but its meaning is not. \Cref{fig:overview} shows the three patterns side by side.
+
+\begin{figure}[t]
+\centering
+\input{figures/tikz_overview}
+\caption{Three ways to ask a human. (a) In-channel confirmation: the agent renders the question and the answer
+arrives on a channel it can write to. (b) Narrated out-of-band card: the click happens on the user's phone, but
+the text the user reads is the agent's description, so the user approves a description rather than the call.
+(c) Effect-bound approval, the design we use as a reference defense (\cref{sec:design}): a gateway the agent
+cannot reach renders the card from the canonical call, the phone signs the digest of that call, and the
+gateway executes only the stored call. Green regions are outside the agent's reach; red regions are inside it.}
+\label{fig:overview}
+\end{figure}
+
+\subsection{Motivating evidence: approvals already fail in practice}
+
+The two-week red-team study \emph{Agents of Chaos}~\citep{shapira2026agents} documents what happens when
+identity and approval live where the agent lives. In its Case~\#8 a non-owner changed a Discord display name to
+the owner's and opened a private channel; the agent inferred ownership from the name and tone, deleted its
+memory and configuration files and reassigned administrative access. In Case~\#15 two agents correctly
+distrusted a social-engineering email and then verified the owner by asking the possibly compromised Discord
+account to confirm itself. In Case~\#1 an agent asked for confirmation before a destructive reset and
+``double-checked'', and both confirmations came from the requesting non-owner in the same conversation. The
+authors conclude that systems relying on presented identity rather than cryptographically grounded or
+multi-factor authentication remain susceptible to session-boundary attacks.
+
+Binding failures are documented as well. Loopjacking~\citep{arunkumar2026loopjacking} shows post-approval
+substitution in released agent products, where the call that executes is not the call that was approved. Practitioner reports describe agents that misstate pending actions to their approvers~\citep{checkmarx2025lies}
+and approvals that resolve a symbolic link differently from what the dialog showed~\citep{wiz2026ghostapproval}.
+These failures were observed in deployed systems.
+
+\subsection{Approach}
+
+This paper continues aiAuthZ~\citep{kodathala2026aiauthz}, earlier work by the first author. aiAuthZ placed authorization in a
+separate trust domain: an off-host gateway binds every user message to an identity and checks every tool call
+against a role and argument policy the agent cannot read. It answered two questions, \emph{who is speaking} and
+\emph{which calls are allowed}, and it stated plainly what it left open: its receipts use a shared-key HMAC and give no third-party
+non-repudiation, and it has no step-up path in which a human approves a specific action. This paper takes up
+that remaining question, \emph{did the human approve exactly this effect}, and treats it first as an attack
+surface and only then as a design problem.
+
+We proceed in four steps. First, we define the properties an approval must have to count as an independent,
+effect-bound factor (\cref{sec:background}). Second, we build a family of twelve attacks on the approval path and
+run them against real designs and implementations (\cref{sec:attacks}), and we audit how ten agent runtimes
+implement approval today (\cref{sec:audit}). Third, we build a reference defense, \sys{} (Agent Step-Up), and
+prove its properties in Tamarin under explicitly stated hypotheses (\cref{sec:design,sec:formal}). Fourth, we
+measure what binding, trusted rendering and a second device each buy, against scripted attacks, AgentDojo
+replays, simulated human approvers and \llmModels{} current language models acting as automated approvers
+(\cref{sec:eval}).
+
+\subsection{Contributions}
+
+None of the cryptographic primitives in this paper is new, and the closest designs, SUDP~\citep{yu2026sudp} and
+Microsoft's action-bound approval design, specified in Architecture Decision Record (ADR)
+0030~\citep{microsoft2026adr0030},, already bind a canonical operation digest
+to a fresh approval. The contribution is the attacks and the measurement around that idea. Specifically, we contribute:
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item A stated, testable criterion for when an approval is a second factor for an agent action, decomposed into
+  seven properties \Prop{1} to \Prop{7} (\cref{sec:properties}).
+\item A family of twelve approval-path attacks, \AB{1} to \AB{12}, executed against the Agent Payments Protocol (AP2), Microsoft's ADR~0030
+  implementation and Model Context Protocol (MCP) elicitation, reviewed statically against OpenClaw and mapped
+  onto in-process frameworks, with \sys{} as the control
+  (\cref{sec:attacks}).
+\item A reproducible audit of ten agent runtimes with uniform criteria for effect binding, single use and flood
+  resistance, including a version sweep showing that post-approval substitution in one framework persists past
+  its published affected range (\cref{sec:audit}).
+\item \sys{}, an open reference gateway with WebAuthn approval over a canonical effect digest, typed and
+  injective card rendering, argument-complete grants and flood limits, and a Tamarin model with
+  \foLemmas{} lemmas whose hypotheses are explicit and whose attacks reappear when each hypothesis is dropped
+  (\cref{sec:design,sec:formal}).
+\item An evaluation that separates what binding, trusted rendering and a second device each contribute, reports
+  the cases where the reference defense does not help, and measures \llmModels{} language models from
+  \llmVendors{} vendors as automated approvers on the same stimuli (\cref{sec:eval}).
+\end{itemize}
+
+We also state what this paper does not claim. It does not claim the idea of out-of-band,
+parameter-bound step-up for agents, which appears in a defensive publication~\citep{vyas2026visamfa}, in
+SUDP~\citep{yu2026sudp}, in ADR~0030~\citep{microsoft2026adr0030}, in AP2~\citep{ap2spec} and in Client-Initiated Backchannel Authentication (CIBA) with Rich
+Authorization Requests~\citep{ciba2021,rfc9396}. It does not claim the first formal model of agent
+authorization~\citep{jiang2026payment,chen2026aith}. It reports no human-subjects data: every approver in the
+evaluation is either a simulated model of a person or a language model, and no statement here is a claim about
+how often people catch attacks.

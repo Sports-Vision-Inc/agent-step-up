@@ -1,0 +1,1 @@
+ApprovalResponse(approved: bool, reason) is unsigned; no receipt.

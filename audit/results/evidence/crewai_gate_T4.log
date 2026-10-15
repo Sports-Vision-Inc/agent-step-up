@@ -1,0 +1,1 @@
+ToolCallHookContext exposes tool_name and tool_input (structured) to the hook; the prompt text is the hook author's; no framework card / untrusted-text box.

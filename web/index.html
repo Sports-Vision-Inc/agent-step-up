@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#1f2a44">
+  <title>ASU Authenticator</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>ASU Authenticator</h1>
+    <p class="sub">Approve or deny actions your AI agent wants to take. This page is served by your gateway, never by the agent.</p>
+  </header>
+
+  <main>
+    <div id="framed" class="error" hidden>This page refuses to run inside a frame.</div>
+    <div id="status" role="status" aria-live="polite"></div>
+
+    <section id="signed-out" hidden>
+      <h2>Sign in</h2>
+      <label for="user-id">User ID</label>
+      <input id="user-id" autocomplete="username webauthn" autocapitalize="none" spellcheck="false" maxlength="64">
+      <div class="row">
+        <button id="btn-login" type="button">Sign in with passkey</button>
+      </div>
+      <details>
+        <summary>First time? Create a passkey</summary>
+        <p class="hint">When your browser asks where to save the passkey, choose
+          <strong>"Use a phone or tablet"</strong> and scan the QR code with your phone.
+          Keeping the passkey on a separate device means a compromised agent on this
+          computer cannot approve actions.</p>
+        <label for="display-name">Display name (optional)</label>
+        <input id="display-name" maxlength="64">
+        <p id="enroll-link-note" class="hint" hidden>One-time enrollment link detected: the token below was
+          filled in from the link your gateway operator gave you.</p>
+        <label for="enroll-token">One-time enrollment token (from <code>asu enroll-link</code>)</label>
+        <input id="enroll-token" autocomplete="off" spellcheck="false">
+        <div class="row">
+          <button id="btn-register" type="button">Create passkey</button>
+        </div>
+      </details>
+    </section>
+
+    <section id="signed-in" hidden>
+      <div class="row between">
+        <span>Signed in as <strong id="who"></strong></span>
+        <span>
+          <button id="btn-add-passkey" type="button" class="secondary">Add passkey</button>
+          <button id="btn-logout" type="button" class="secondary">Sign out</button>
+        </span>
+      </div>
+      <div class="row between">
+        <h2>Pending approvals</h2>
+        <button id="btn-refresh" type="button" class="secondary">Refresh</button>
+      </div>
+      <div id="pending"></div>
+      <p id="none" class="muted" hidden>Nothing waiting for your approval.</p>
+    </section>
+  </main>
+
+  <template id="tpl-approval">
+    <article class="approval">
+      <div class="card-head">
+        <span class="badge"></span>
+        <h3 class="title"></h3>
+      </div>
+      <ul class="risks"></ul>
+      <dl class="fields"></dl>
+      <section class="args" hidden>
+        <h4 class="args-head">Arguments <span class="args-note">(names chosen by the agent; values checked and typed by the gateway)</span></h4>
+        <dl class="arg-fields"></dl>
+      </section>
+      <p class="meta"><span class="digest"></span> <span class="expires"></span></p>
+      <details class="explanation" hidden>
+        <summary><span class="explanation-label">Agent's explanation — untrusted</span> <span class="explanation-hint">(hidden; tap to read)</span></summary>
+        <p class="explanation-note">Written by the agent. It may be false. Decide from the details above, never from this text.</p>
+        <pre class="explanation-text"></pre>
+      </details>
+      <div class="grant" hidden>
+        <label class="grant-label"><input type="checkbox" class="grant-box"> Also allow similar actions within these limits</label>
+        <ul class="grant-summary"></ul>
+        <details class="grant-raw"><summary>All signed grant constraints</summary><dl class="grant-fields"></dl></details>
+      </div>
+      <div class="row actions">
+        <button type="button" class="approve">Approve with passkey</button>
+        <button type="button" class="deny danger">Deny</button>
+      </div>
+      <p class="result" role="status"></p>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

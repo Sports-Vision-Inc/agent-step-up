@@ -1,0 +1,106 @@
+\section{Measuring Deployed Agent Runtimes}\label{sec:audit}
+
+The attacks of \cref{sec:attacks} ask whether a design can be broken. The audit asks a narrower question of
+the tools developers use: when a runtime pauses for human approval, which of \Prop{1} to \Prop{5} and
+\Prop{7} does that pause have?
+
+\subsection{Method}
+
+We wrote one probe per runtime, ran each in its own isolated environment with a stub model so that results do not
+depend on a network model, and recorded every outcome together with an evidence log. We executed probes against nine
+runtimes: the OpenAI Agents SDK, LangGraph, Google ADK, Agno, Pydantic AI, CrewAI, AutoGen AgentChat, smolagents
+and the MCP Python SDK. The tenth, OpenClaw, needs a model for its live loop, so we reviewed it statically from
+its released bundle. The smolagents library has no built-in approval mechanism, so every cell of its row is n/a. For CrewAI and AutoGen we audited both the general human-input primitive and the documented
+approval gate, which gives twelve rows. Claude Code, Codex CLI and Cursor are proprietary; we wrote manual test
+procedures for them but did not run them, and the table excludes them. Three rules keep the criteria uniform
+across runtimes.
+
+\paragraph{\Prop{1} is reported as structural, not measured.} An approval callback that runs in the agent's own
+process is reachable by the agent by construction under this threat model. We mark those cells $\dagger$ and
+exclude them from every count, and instead measure two observable facts: whether a paused run can be resumed from
+another process, and whether the runtime ships an approver that is a separate principal.
+
+\paragraph{\Prop{2} uses a capability ladder.} Level L1 is the approver editing arguments, which is a legitimate
+channel and not a gap. Level L2 is any party that can call the documented resume or continue API. Level L3 is a
+writer of the backing store, such as a checkpoint or session database. A runtime passes if it resists L2 and L3,
+is partial if it resists only L2, and fails if an L2 party can change what executes after approval.
+
+\paragraph{\Prop{3} uses one replay criterion.} For every runtime we tried a same-call replay, a rollback of run
+state followed by a replay, and a cross-call replay. A runtime whose approvals are consumed relative to run state
+but double-execute after a rollback is marked partial.
+
+Cells whose outcome is a reading of source or documentation rather than an observed value are marked $J$
+(judgment); all \Prop{4} and \Prop{5} cells are of this kind, because no experiment can select an outcome without
+a reference renderer or verifier in each runtime. There are \auJudgement{} judgment cells, and they are excluded
+from the counts below.
+
+\begin{table}[t]
+\centering\small
+\caption{Approval properties of agent runtimes. Subscripts: \textsubscript{state}, single use holds only relative
+to run state, and a rollback replays; \textsubscript{store}, binding resists the resume API but not a writer of the
+backing store; \textsubscript{int}, holds only if the integrator renders from structured data;
+\textsubscript{low}, low-severity gap. Superscripts: $\dagger$, fails by construction under the threat model;
+$J$, judgment from source or API review; $s$, static review only. n/a: no such mechanism. \Prop{7} is
+measured within one run.}
+\label{tab:audit}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}l l c c c c c c@{}}
+\toprule
+Runtime & Version & \Prop{1} & \Prop{2} & \Prop{3} & \Prop{4} & \Prop{5} & \Prop{7}\\
+\midrule
+\inputtab{tables/tab_audit.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Results}
+
+\Cref{tab:audit} gives the outcome for every runtime. We highlight four findings.
+
+\paragraph{Effect binding splits the field.} Of the eight rows where binding could be measured, \auPtwoPass{} pass,
+\auPtwoPart{} is partial and \auPtwoFail{} fail. The OpenAI Agents SDK binds a call identifier to one canonical
+payload and rejects a resumed run whose arguments differ. AutoGen's code-executor approval executes exactly the
+code that was approved, and MCP keeps arguments on the server. Google ADK resisted all five mismatched
+confirmations we sent through its runner, but a writer of the session store can substitute arguments. LangGraph and
+Agno execute whatever arguments are in thread state at resume time, so a party holding the thread substitutes the
+effect with a bare ``approve''. Pydantic AI executes the arguments in a caller-supplied message history, and a later
+CrewAI hook can mutate arguments that an earlier hook approved.
+
+\paragraph{The substitution persists past its published range.} Loopjacking reports post-approval substitution in
+Agno's AgentOS for versions 2.5.6 to 3.0.9~\citep{arunkumar2026loopjacking}. We re-ran the same probe over real HTTP
+against 3.0.9, 3.0.10 and the latest release, 3.1.3 (\cref{tab:agno}). Substitution through the documented remote
+continue endpoint reproduces on all three. Same-call replay, which double-executed on the 3.0 releases, executes
+once on 3.1.3, while a rollback still double-executes. The attack class is already public. Only the affected version range is new, and we make no novelty claim for the
+class.
+
+\begin{table}[t]
+\centering\small
+\caption{Version dependence in Agno. The same probe, with the same criteria, re-run in each release. 3.1.3 is the
+latest release measured.}
+\label{tab:agno}
+\begin{tabular}{@{}l c l l l l@{}}
+\toprule
+Agno & In published range & \Prop{2} & Remote continue & \Prop{3} & Same-call replay\\
+\midrule
+3.0.9 & yes & FAIL & substituted & FAIL & re-executes\\
+3.0.10 & no & FAIL & substituted & FAIL & re-executes\\
+3.1.3 & no & FAIL & substituted & PART\textsubscript{state} & consumed once\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Single use is relative to run state in most runtimes.} In \auPthreePart{} rows, an approval is consumed
+relative to the run but executes twice when the run state is rolled back and resumed, because the approval artifact carries no
+nonce or expiry of its own. The two rows that pass, the CrewAI and AutoGen gates, ask again for every call.
+
+\paragraph{No measured runtime limits floods, and none produces a verifiable record.} In all \auPsevenFail{} rows where flooding
+could be measured, nothing capped or rate-limited pending approvals. In the five runtimes with a native
+pause, a single model turn raised 20 pending approvals. By our reading of their APIs, no runtime produces a
+signed approval record that a third party could verify. Approvals are stored as unsigned booleans or flags in
+run state. Every runtime with structured arguments leaves rendering to the integrator, and only OpenClaw ships a card
+that escapes invisible characters and caps length.
+
+These results describe each runtime's documented approval primitive, not every way an integrator might use it. A
+team that renders arguments carefully, persists approvals with a nonce, and resumes runs only from a trusted
+service can close several of these gaps. The point of the audit is that, by default, the pause a developer adds
+is not yet a factor the agent cannot reach.

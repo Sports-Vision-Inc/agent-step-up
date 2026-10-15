@@ -1,0 +1,2 @@
+T5: modules referencing approval-record signing (ed25519/webauthn/signApproval) among approval-* files = []
+T5: approval records carry requester/reviewer attribution and operator scopes but no cryptographic signature over the effect that a third party could verify without trusting the Gateway's own store.

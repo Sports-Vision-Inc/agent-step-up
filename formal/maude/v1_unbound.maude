@@ -1,0 +1,33 @@
+*** V1 "unbound": out-of-band passkey approval of the run/session, NOT bound to
+*** h(E). The gateway executes whatever effect the agent submits on retry.
+*** Mirrors formal/tamarin/v1_unbound.spthy. Expected: L1 FALSIFIED.
+load common.maude
+
+mod V1-MODEL is
+  including ASU-ADV .
+  vars U A N E E2 S : Msg . vars K ES : MsgSet .
+  vars F B Q BB XX : Nat . var L : Log .
+
+  crl [call] : fresh(F, B) effs(E ; ES) ik(K) gw(U)
+   => fresh(s F, B) effs(E ; ES) ik(K ; aid(F) ; nc(F)) gw(U)
+      pending(U, aid(F), nc(F), E) todev(U, aid(F), nc(F), E)
+   if F < B .
+  *** The human is (generously) shown the requested effect E, but the passkey
+  *** signs only the session-level challenge.
+  rl [approve] : todev(U, A, N, E) dev(U) ik(K) log(L)
+   => dev(U) ik(K ; sig(tup(tagS, U, A, N), sk(U)))
+      log(L ;; approve(U, A, E) ;; signed(U, A, tagS)) .
+  crl [verify] : pending(U, A, N, E) ik(S ; K) log(L)
+   => apst(U, A, N, E) ik(S ; K) log(L ;; approved(U, A, E))
+   if S == sig(tup(tagS, U, A, N), sk(U)) .
+  *** No digest comparison; the agent's resubmitted args are executed.
+  crl [exec] : apst(U, A, N, E) ik(K) effs(E2 ; ES) budget(s Q) log(L)
+   => ik(K) effs(E2 ; ES) budget(Q) log(L ;; exec(U, A, E2))
+   if memb(A, K) .
+
+  op init : Nat Nat MsgSet -> Config .
+  var SC : MsgSet .
+  eq init(BB, XX, SC) = fresh(0, BB) budget(XX)
+            effs(eff(c1, x1) ; eff(c1, x2) ; eff(c2, x1)) scopes(SC)
+            ik(u ; pk(u) ; tagA ; tagS) dev(u) gw(u) log(nil) .
+endm

@@ -1,0 +1,32 @@
+\begin{abstract}
+\noindent
+AI agents now pause for approval before they send money, delete files or email outsiders, and the approval,
+whether given by a person or by an automated approver, is usually treated as a second factor. We argue that it
+is a second factor only when compromising the agent cannot produce it, and only when the approval says exactly
+what it approves, and we test both conditions. We define twelve attacks on the approval path, among them decoy
+recipients, amount cancellation, card padding, label spoofing, enrollment squatting and threshold splitting. We
+execute them against the Agent Payments Protocol (AP2), Microsoft's action-bound approval design and Model Context
+Protocol (MCP) elicitation, review OpenClaw statically, and map them onto agent frameworks through an audit of ten
+agent runtimes. By our reading of their APIs, no runtime produces a third-party verifiable approval record. None
+of the seven runtimes where we could measure flooding limits approval floods within a run, and in four of the
+eight whose binding we could measure, a resumer, a hook or a stored history can change what executes after
+approval. As a reference defense we build \sys{} (Agent Step-Up), a gateway that canonicalizes each tool call
+into an effect descriptor, renders the approval card from that descriptor, has a passkey on the user's phone sign
+its digest, and executes only the stored descriptor. Under three stated hypotheses, Tamarin proves its binding
+and single-use properties and key-level non-repudiation, and finds the expected attacks on four baselines, a
+mutant and a straw man (\foLemmas{} lemmas, all with the expected verdict). Across \scTrials{} scripted trials
+and \adPairs{} AgentDojo attack pairs, \sys{} stops substitution, replay and grant stretching, which unbound
+approval allows every time. Against an approver that compares the card with the task, the trusted card cuts
+forged-narration attack success from \adFExNarr{} to \adFExAsu{}. With \llmModels{} current language models
+acting as automated approvers, the trusted card raises the attack catch rate from \llmCatchNarr{} to
+\llmCatchCard{}, at the cost of refusing \llmFDPctCard\% of harmless near misses, most of them because of a
+placeholder artifact in our stimuli. We also report what does not work: the second device adds nothing measurable
+over a trusted on-host confirmation in these experiments, flooding still succeeds against \sys{}
+\scFloodPthirty{} to \scFloodDefault{} of the time with a modeled human approver, and approval cannot stop effects
+that policy already allows. Code, data and proofs are available at \codeurl{}.
+\end{abstract}
+
+\noindent\textit{Keywords}\enspace AI agents $\cdot$ step-up authorization $\cdot$ multi-factor authentication
+$\cdot$ WebAuthn $\cdot$ effect binding $\cdot$ trusted rendering $\cdot$ formal verification
+
+\bigskip

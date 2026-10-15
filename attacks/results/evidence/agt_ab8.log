@@ -1,0 +1,7 @@
+canonicalize({'x': 1e-07}) = {"x":1e-07}  (RFC 8785 expects {"x":1e-7})
+canonicalize({'x': 1e-06}) = {"x":1e-06}  (RFC 8785 expects {"x":0.000001})
+canonicalize({'x': 1e+21}) = {"x":1000000000000000000000}  (RFC 8785 expects {"x":1e+21})
+canonicalize({'x': 0.1}) = {"x":0.1}  (RFC 8785 expects {"x":0.1})
+canonicalize({'x': 123.5}) = {"x":123.5}  (RFC 8785 expects {"x":123.5})
+within-SDK distinct digests for (10,bob),(10.5,bob),(10,bob2),('10',bob): True
+cross-implementation float mismatches: {'1e-07': '{"x":1e-07}', '1e-06': '{"x":1e-06}', '1e+21': '{"x":1000000000000000000000}'}

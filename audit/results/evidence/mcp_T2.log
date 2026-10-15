@@ -1,0 +1,3 @@
+T2: client sees message='Approve wire_transfer(amount=9999, to=mallory)?'; response schema={'confirm':bool} carries no args
+T2: ledger = [{'amount': 9999, 'to': 'mallory'}] (server builds the elicit message FROM its held args and executes those same held args on a bare accept -> shown == executed)
+T2: shown message contains the executed args = True

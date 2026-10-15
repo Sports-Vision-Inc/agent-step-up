@@ -1,0 +1,101 @@
+\section{Formal Analysis}\label{sec:formal}
+
+We model \sys{}, four baselines, a mutant and a straw man in Tamarin 1.10.0~\citep{meier2013tamarin}\footnote{Tamarin
+reports the Maude 3.2 rewriting engine we used as unsupported (it recommends 3.2.1 or later); all verdicts were
+obtained with 3.2.} to check that the binding properties
+hold for an unbounded number of sessions, and to make the assumptions behind them explicit.
+Formal models of agent authorization protocols already exist, including Tamarin analyses of agent payment
+protocols~\citep{jiang2026payment} and of a post-quantum delegation protocol~\citep{chen2026aith}; we claim no
+priority for the method.
+
+\subsection{Model and hypotheses}
+
+The agent is a Dolev-Yao adversary. It chooses every tool call, including the tool, target and amount of
+any effect and any explanation text, sees everything the gateway
+returns and every WebAuthn assertion, and can send any message to any gateway rule. The challenge is modeled as
+the free tuple
+\[\langle\texttt{'ASU-APPROVAL-v2'},\ \dig,\ \mathit{id},\ g\rangle,\]
+This is sound because the canonical
+JSON encoding of an object with a fixed key set is injective and SHA-256 is assumed collision resistant. The
+nonce is dropped, which only makes signatures reusable in more contexts and is therefore conservative for the
+safety lemmas. Rendering is injective, which the code discharges with a property test.
+
+Three hypotheses are stated in the theory, not hidden in it. Each is a rule the adversary may use, each rule
+emits a marker, and each lemma names the hypotheses it relies on as conjuncts of its premise:
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+\item[\Hyp{1}] The human decides from the trusted fields of the card, not from the agent's explanation.
+\item[\Hyp{2}] Enrollment is closed: only the device holder can enroll a principal's first credential.
+\item[\Hyp{3}] The rendering origin is honest: the page that drives the authenticator shows the card that
+  matches the challenge it hands over. Authenticators do not display the challenge, so this is a real assumption.
+\end{itemize}
+
+\subsection{Results}
+
+All \foLemmas{} lemmas across \foTheories{} theories produced the expected verdict, with \foMismatch{}
+mismatches and no errors; the full run takes about three minutes, and the slowest lemma, which bounds the number
+of grant uses, takes \foMaxSec{} seconds. \Cref{tab:formal} reports the main lemmas.
+
+\begin{table}[t]
+\centering\small
+\caption{Main \sys{} lemmas (Tamarin 1.10.0, unbounded). ``Hyp.'' lists the hypotheses in the premise. The
+existence lemmas show that executions, grant executions and receipt verification are reachable under
+\Hyp{1} to \Hyp{3}, so the safety lemmas are not vacuous.}
+\label{tab:formal}
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X l l@{}}
+\toprule
+Lemma & Statement & Hyp. & Result\\
+\midrule
+\code{L1\_effect\_binding} & An execution of $\Desc$ under $\mathit{id}$ implies the human approved $\Desc$ for $\mathit{id}$ beforehand & \Hyp{1}--\Hyp{3} & verified\\
+\code{L1\_sig\_binding} & An execution implies $U$'s authenticator signed $\dig(\Desc)$ for $\mathit{id}$ & \Hyp{2} & verified\\
+\code{L2\_single\_use} & At most one execution per approval identifier & none & verified\\
+\code{L3\_agent\_independence} & An approved status implies the human approved that effect & \Hyp{1}--\Hyp{3} & verified\\
+\code{L4\_non\_repudiation} & A judge holding only $pk_U$ accepts $(\dig,\mathit{id},g)$ only if $U$'s authenticator signed exactly that tuple, even when the origin controls the ceremony & \Hyp{2} & verified\\
+\code{L4c\_consent\_nonrep.} & A judge's acceptance implies the human approved the effect & \Hyp{1}--\Hyp{3} & verified\\
+\code{L5\_grant\_scope} & A grant execution of $\langle t,r,a\rangle$ implies the human approved $\langle t,r,a_0\rangle$ and the gateway-built grant, with $a\le a_0$ & \Hyp{1}--\Hyp{3} & verified\\
+\code{L5b\_grant\_max\_uses} & At most \emph{max\_uses} grant executions & none & verified\\
+\midrule
+\code{X1\_*} (2 lemmas) & L1 and L3 with \Hyp{1} dropped: the human decides on the explanation & & falsified\\
+\code{X2\_*} (2 lemmas) & L4c and L1 with \Hyp{3} dropped: the origin shows one card and has another signed & & falsified\\
+\code{X3\_*} (4 lemmas) & L1, L1\_sig, L4 and L5 with \Hyp{2} dropped: the agent enrolls first & & falsified\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Each hypothesis is necessary.} The X variants are the same theory as the main lemmas with exactly one
+hypothesis removed and the conclusion unchanged, so the attacked model cannot drift from the verified one. Each
+variant is falsified, and Tamarin returns the expected attack. Without \Hyp{1}, the agent writes ``send 5 to
+alice'' as its explanation for an effect that pays 500 to an attacker; the human approves on the explanation and
+taps, yet \code{L1\_sig\_binding} and \code{L4\_non\_repudiation} still hold, because the signature binds the real
+digest. Without \Hyp{3}, the origin shows one card and has the authenticator sign another approval's challenge;
+the key-level lemma \code{L4\_non\_repudiation} still verifies in the same theory, which is why we state
+non-repudiation at the key level (\Prop{5}). Without \Hyp{2}, the agent enrolls the first credential of an unused
+principal and approves its own calls, which is \AB{7}.
+
+\paragraph{The baselines fail where they should.} \Cref{tab:formalbase} shows the same lemmas on the baselines.
+An unbound approval passes single use but fails both binding lemmas. A narrated card passes signature binding,
+because the device does sign the digest, but fails effect binding and agent independence, because the card the
+human reads is the agent's narration. A one-time code relayed through the agent's chat and an in-channel ``yes'' fail
+effect binding and independence. Removing consumption from \sys{} breaks only single use, and a shared-key message authentication code (MAC) in
+place of the passkey breaks only non-repudiation, which is the property aiAuthZ's symmetric receipts gave up
+by design~\citep{kodathala2026aiauthz}.
+
+\begin{table}[t]
+\centering\small
+\caption{The same lemmas on the baselines. \ok{} verified, \no{} falsified, n/a not stated for that model. V3 is a
+mutant of \sys{} without consumption and V5 replaces the passkey with a shared-key MAC; neither is implemented as a
+mode.}
+\label{tab:formalbase}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}l c c c c c@{}}
+\toprule
+Model & L1 effect & L1 sig. & L2 single use & L3 indep. & L4 non-rep.\\
+\midrule
+\inputtab{tables/tab_formal_baselines.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{What the model does not cover.} Free-text arguments that a grant leaves free are not modeled, and
+\code{L5\_grant\_scope} makes no claim about them. Nonces and expiry are not modeled because the fresh approval
+identifier already does their work in the model. The model also says nothing about whether a person reads the
+card, which is \Hyp{1} and the subject of \cref{sec:eval}.

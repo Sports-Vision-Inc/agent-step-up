@@ -1,0 +1,3 @@
+T3: ledger after first approve = [{'amount': 5, 'to': 'bob'}]
+T3 same_call: ledger after replayed Command(resume=True) = [{'amount': 5, 'to': 'bob'}]
+T3 rollback: resume from pre-exec checkpoint -> ledger = [{'amount': 5, 'to': 'bob'}, {'amount': 5, 'to': 'bob'}]

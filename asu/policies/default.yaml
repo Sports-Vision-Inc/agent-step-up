@@ -1,0 +1,40 @@
+# Default ASU policy (SPEC section 9, revised by D-005). Copy and edit for experiments.
+#
+# Argument schemas (D-005 item 4): every tool below gets its typed, CLOSED
+# argument schema from asu/policies/schemas.yaml (e.g. send_email: to/cc/bcc/
+# recipients: recipient, subject/body: text, attachments: json). A call with
+# an argument the schema does not list is denied. Override or extend a schema
+# per tool with ``args: {name: type}``.
+tools:
+  read_file:     {class: read,   default: allow}
+  list_dir:      {class: read,   default: allow}
+  write_file:    {class: write,  default: allow}
+  delete_file:   {class: delete, default: challenge}
+  send_email:    {class: send,   default: challenge}
+  send_message:  {class: send,   default: allow}
+  transfer_money: {class: pay,   default: challenge}
+  http_request:  {class: net,    default: allow}
+  run_shell:     {class: exec,   default: challenge}
+  change_settings: {class: admin, default: challenge}
+unknown_tool: deny
+schema_library: true
+untyped_tools: challenge
+step_up:
+  first_time_recipient: true
+  amount_over: 100
+  autonomous_origin: true
+  destructive_classes: [delete, pay, admin, exec]
+  outside_workspace: true
+  aggregate: {window_s: 600, max_effects: 5, max_amount: 200}
+deny:
+  # matched case-insensitively against both the lexical and the resolved path
+  path_globs: ["/etc/**", "/private/etc/**", "**/.ssh/**"]
+  hosts: []
+grants: {max_ttl_s: 3600, max_uses: 10, max_text_len: 4000}
+flood:
+  max_pending_per_session: 1
+  max_requests_per_min: 6
+  deny_lockout: 3
+  max_pending_per_user: 3
+  deny_lockout_per_user: 10
+  lockout_window_s: 3600

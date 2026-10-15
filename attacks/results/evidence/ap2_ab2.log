@@ -1,0 +1,4 @@
+AB1 over-cap violations: ['Amount 5000 exceeds maximum 1000']
+AB1 at-cap violations: []
+AB2 wrong-id/right-name: ['Payee Bob Store not in allowed list']
+AB2 right-id/fake-name: []

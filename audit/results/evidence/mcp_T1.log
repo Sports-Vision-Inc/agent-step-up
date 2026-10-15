@@ -1,0 +1,2 @@
+T1: client elicitation_callback auto-accepted in code; ledger=[{'amount': 10, 'to': 'alice'}]
+T1: SDK docstring: 'If the client is an agent, it might decide how to handle the elicitation -- ... automatically generating a response.'

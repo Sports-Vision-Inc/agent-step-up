@@ -1,0 +1,1 @@
+T4: Agno exposes the paused ToolExecution with tool_name and tool_args (structured data) for the integrator / AgentOS UI to render; it ships no trusted card and no untrusted-text box, and the confirmation UX sits in the same app surface as the agent.

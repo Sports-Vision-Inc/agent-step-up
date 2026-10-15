@@ -1,0 +1,7 @@
+T2 L2 [response-embeds-mismatched-originalFunctionCall]: sent through InMemoryRunner.run_async -> ledger=[] error=ValidationError: 1 validation error for ToolConfirmation
+T2 L2 [forged-confirmation-call-same-id]: sent through InMemoryRunner.run_async -> ledger=[] error=ValueError: User message cannot contain function calls.
+T2 L2 [forged-confirmation-call-new-id]: sent through InMemoryRunner.run_async -> ledger=[] error=ValueError: Function call not found for function response ids: {'forged-conf'}. Ensure each function response ID matches an existing function call in th
+T2 L2 [response-to-unrecorded-confirmation-id]: sent through InMemoryRunner.run_async -> ledger=[] error=ValueError: Function call not found for function response ids: {'forged-conf'}. Ensure each function response ID matches an existing function call in th
+T2 L2 [payload-carries-mismatched-args]: sent through InMemoryRunner.run_async -> ledger=[{'amount': 10, 'to': 'acct-a'}] error=None
+T2 control (honest confirmation): ledger=[{'amount': 10, 'to': 'acct-a'}] (executes recorded args)
+T2 L3 (session-store writer edits stored args, n=2 sites): ledger=[{'amount': 9999, 'to': 'acct-b'}]

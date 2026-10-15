@@ -1,0 +1,1 @@
+T5: confirmation is ToolExecution.confirmed (bool); the AgentOS approval record attributes resolved_by but carries no signature/key/receipt over the effect. Not third-party verifiable without trusting the AgentOS store.

@@ -1,0 +1,1130 @@
+[
+  {
+    "runtime": "openai-agents",
+    "version": "0.23.1",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/openai_agents_T1.log",
+    "explanation": "BY CONSTRUCTION (dagger): approval is an in-process ToolApprovalItem; the host that runs the agent calls state.approve() with no out-of-band factor, so under SPEC-3's host-adversarial model the decision is reachable by agent code. Measured: out-of-process resume is possible (serializable RunState + from_json); the SDK ships no separate-principal approver.",
+    "mechanism": "FunctionTool(needs_approval=True) + RunState.approve()/to_json()",
+    "marker": "dagger",
+    "counted": false,
+    "p1": {
+      "oop_resume": "Y",
+      "separate_principal_approver": "no",
+      "oop_evidence": "RunState.to_json()/from_json() round-trip"
+    },
+    "markers": [
+      "dagger"
+    ]
+  },
+  {
+    "runtime": "openai-agents",
+    "version": "0.23.1",
+    "test": "T2_P2_effect_binding",
+    "outcome": "pass",
+    "evidence": "results/evidence/openai_agents_T2.log",
+    "explanation": "a call ID is bound to one canonical invocation payload; mutating the approved serialized args is rejected with ModelBehaviorError ('reused a tool call ID for a different invocation'). Matches Loopjacking negative control.",
+    "mechanism": "serialized RunState resume (to_json/from_json)",
+    "levels": {
+      "L1": "n/a (approver is trusted)",
+      "L2": "resist",
+      "L3": "resist (no external backing store in the in-process SDK path)"
+    }
+  },
+  {
+    "runtime": "openai-agents",
+    "version": "0.23.1",
+    "test": "T3_P3_single_use",
+    "outcome": "partial",
+    "evidence": "results/evidence/openai_agents_T3.log",
+    "explanation": "consumed relative to run state (a new call_id raises its own approval), but no nonce/expiry on the approval artifact: resuming the same approved RunState from a rollback double-executes.",
+    "mechanism": "RunState rollback replay",
+    "qualifier": "STATE",
+    "levels": {
+      "same_call": "consumed relative to run state",
+      "rollback": "double-exec",
+      "cross_call": "resist"
+    }
+  },
+  {
+    "runtime": "openai-agents",
+    "version": "0.23.1",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "partial",
+    "evidence": "results/evidence/openai_agents_T4.log",
+    "explanation": "structured tool name and JSON args are exposed on ToolApprovalItem, but the SDK ships no trusted renderer and no untrusted-text box; rendering is left entirely to the integrator. [J] judgement rationale: source/API review: ToolApprovalItem name/arguments are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "mechanism": "ToolApprovalItem fields",
+    "qualifier": "INT",
+    "judgement": true,
+    "rationale": "source/API review: ToolApprovalItem name/arguments are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "openai-agents",
+    "version": "0.23.1",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/openai_agents_T5.log",
+    "explanation": "approval is stored as an unsigned boolean record in run state; there is no cryptographic receipt a third party could verify. [J] judgement rationale: source/API review: the approval is an unsigned record in RunState; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "mechanism": "unsigned approval record in RunState",
+    "judgement": true,
+    "rationale": "source/API review: the approval is an unsigned record in RunState; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "openai-agents",
+    "version": "0.23.1",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "fail",
+    "evidence": "results/evidence/openai_agents_T6.log",
+    "explanation": "a single model turn raised 20 pending approvals in one run with no built-in cap / rate limit; a compromised agent can flood the approver (fatigue).",
+    "mechanism": "parallel tool calls in one run"
+  },
+  {
+    "runtime": "langgraph",
+    "version": "1.2.15",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/langgraph_T1.log",
+    "explanation": "BY CONSTRUCTION (dagger): interrupt() returns the payload into the same process that drives the graph; that process answers with Command(resume=...). Measured: state is checkpointed, so an out-of-process resume is possible (the Agent Server product does exactly this); the core library ships no separate-principal approver.",
+    "mechanism": "interrupt() / Command(resume=) with a checkpointer",
+    "marker": "dagger",
+    "counted": false,
+    "p1": {
+      "oop_resume": "Y",
+      "separate_principal_approver": "no",
+      "oop_evidence": "second app sharing the checkpointer resumes the thread; Agent Server composition not run (langgraph_sdk present, server not)"
+    },
+    "markers": [
+      "dagger"
+    ]
+  },
+  {
+    "runtime": "langgraph",
+    "version": "1.2.15",
+    "test": "T2_P2_effect_binding",
+    "outcome": "fail",
+    "evidence": "results/evidence/langgraph_T2.log",
+    "explanation": "the resume reads args from thread state at execution time, so a party holding the thread (Agent Server composition) substitutes the effect with a bare resume(True); nothing binds the approved payload to the executed one.",
+    "mechanism": "third-party update_state via checkpointer / Agent Server thread",
+    "levels": {
+      "L1": "substituted (approver's own Command(update=...)) \u2014 not a binding gap",
+      "L2": "substituted",
+      "L3": "substituted (checkpoint state is the backing store; same as L2)"
+    }
+  },
+  {
+    "runtime": "langgraph",
+    "version": "1.2.15",
+    "test": "T3_P3_single_use",
+    "outcome": "partial",
+    "evidence": "results/evidence/langgraph_T3.log",
+    "explanation": "consumed relative to thread state (a stray resume on a consumed thread does not re-run), but no nonce/expiry: resuming from the pre-execution checkpoint double-executes.",
+    "mechanism": "checkpoint rollback replay",
+    "qualifier": "STATE",
+    "levels": {
+      "same_call": "consumed relative to run state",
+      "rollback": "double-exec",
+      "cross_call": "n/a"
+    }
+  },
+  {
+    "runtime": "langgraph",
+    "version": "1.2.15",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "partial",
+    "evidence": "results/evidence/langgraph_T4.log",
+    "explanation": "structured payload can be passed to interrupt(), but rendering/trust is entirely the integrator's responsibility; the framework enforces nothing. [J] judgement rationale: source/API review: interrupt() payloads are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "mechanism": "interrupt() payload",
+    "qualifier": "INT",
+    "judgement": true,
+    "rationale": "source/API review: interrupt() payloads are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "langgraph",
+    "version": "1.2.15",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/langgraph_T5.log",
+    "explanation": "approval is an unsigned boolean in checkpoint state; not third-party verifiable. [J] judgement rationale: source/API review: the resume value is an unsigned value in checkpoint state; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "mechanism": "unsigned checkpoint state",
+    "judgement": true,
+    "rationale": "source/API review: the resume value is an unsigned value in checkpoint state; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "langgraph",
+    "version": "1.2.15",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "fail",
+    "evidence": "results/evidence/langgraph_T6.log",
+    "explanation": "a single invoke raised 20 pending interrupts in one run; interrupt() has no built-in rate limit or pending-cap.",
+    "mechanism": "parallel interrupting nodes in one run"
+  },
+  {
+    "runtime": "google-adk",
+    "version": "2.12.0",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/google_adk_T1.log",
+    "explanation": "BY CONSTRUCTION (dagger): the confirmation is a FunctionResponse the host sends back through the same model conversation the agent drives; confirmed=True is constructed in-process. Measured: session is serializable so out-of-process resume is possible; ADK ships no separate-principal approver.",
+    "mechanism": "FunctionTool(require_confirmation=True) via Runner",
+    "marker": "dagger",
+    "counted": false,
+    "p1": {
+      "oop_resume": "Y",
+      "separate_principal_approver": "no",
+      "oop_evidence": "confirmation is a FunctionResponse over a serializable session"
+    },
+    "markers": [
+      "dagger"
+    ]
+  },
+  {
+    "runtime": "google-adk",
+    "version": "2.12.0",
+    "test": "T2_P2_effect_binding",
+    "outcome": "partial",
+    "evidence": "results/evidence/google_adk_T2.log",
+    "explanation": "MEASURED: mismatched confirmations sent by the resumer through the real InMemoryRunner (embedded originalFunctionCall, forged confirmation calls, unrecorded id, payload) never executed the substituted args; the flow derives the call from agent-authored session history. But a session-store writer who edits the recorded FunctionCall args before confirmation substitutes the effect.",
+    "mechanism": "confirmation flow (_confirmation.py) via Runner",
+    "qualifier": "STORE",
+    "levels": {
+      "L1": "n/a (approver is trusted)",
+      "L2": "resist (5 mismatched confirmations sent via Runner; none executed the mismatched args)",
+      "L3": "substituted",
+      "L2_variants": {
+        "response-embeds-mismatched-originalFunctionCall": {
+          "executed": [],
+          "error": "ValidationError: 1 validation error for ToolConfirmation",
+          "substituted": false
+        },
+        "forged-confirmation-call-same-id": {
+          "executed": [],
+          "error": "ValueError: User message cannot contain function calls.",
+          "substituted": false
+        },
+        "forged-confirmation-call-new-id": {
+          "executed": [],
+          "error": "ValueError: Function call not found for function response ids: {'forged-conf'}. Ensure each function response ID matches an existing function call in th",
+          "substituted": false
+        },
+        "response-to-unrecorded-confirmation-id": {
+          "executed": [],
+          "error": "ValueError: Function call not found for function response ids: {'forged-conf'}. Ensure each function response ID matches an existing function call in th",
+          "substituted": false
+        },
+        "payload-carries-mismatched-args": {
+          "executed": [
+            {
+              "amount": 10,
+              "to": "acct-a"
+            }
+          ],
+          "error": null,
+          "substituted": false
+        }
+      }
+    }
+  },
+  {
+    "runtime": "google-adk",
+    "version": "2.12.0",
+    "test": "T3_P3_single_use",
+    "outcome": "partial",
+    "evidence": "results/evidence/google_adk_T3.log",
+    "explanation": "same uniform criterion as the other SDKs, measured through the Runner: an identical confirmation replayed against the post-approval session executes once and an old confirmation does not authorize a new call, but restoring the pre-execution session state and resending the confirmation executes the effect again (rollback executions=2); ToolConfirmation carries no nonce/expiry, so single use is relative to session state, not a property of the artifact.",
+    "mechanism": "e2e confirmation replay / session rollback via Runner",
+    "qualifier": "STATE",
+    "levels": {
+      "same_call": "consumed at flow layer",
+      "rollback": "double-exec",
+      "cross_call": "resist",
+      "rollback_supplementary_rewind_async": "rewind_async before the request invocation then resend -> executions=1 error=ValueError: Function call not found for function response ids: {'adk-<id>'}. Ensure each function re (the confirming run resumes the same invocation, so the rewind also removes the pending request)"
+    }
+  },
+  {
+    "runtime": "google-adk",
+    "version": "2.12.0",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "partial",
+    "evidence": "results/evidence/google_adk_T4.log",
+    "explanation": "structured args are available for a trusted card, but ADK renders nothing itself and the confirmation travels in-band in the model conversation; no enforced trusted path. [J] judgement rationale: source/API review: the adk_request_confirmation originalFunctionCall name/args are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "mechanism": "adk_request_confirmation function call",
+    "qualifier": "INT",
+    "judgement": true,
+    "rationale": "source/API review: the adk_request_confirmation originalFunctionCall name/args are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "google-adk",
+    "version": "2.12.0",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/google_adk_T5.log",
+    "explanation": "confirmation is an unsigned boolean; no cryptographic, verifiable approval record. [J] judgement rationale: source/API review: ToolConfirmation fields are {hint, confirmed, payload}, unsigned; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "mechanism": "unsigned ToolConfirmation",
+    "judgement": true,
+    "rationale": "source/API review: ToolConfirmation fields are {hint, confirmed, payload}, unsigned; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "google-adk",
+    "version": "2.12.0",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "fail",
+    "evidence": "results/evidence/google_adk_T6.log",
+    "explanation": "a single model turn raised 20 confirmation requests in one run; no built-in rate limit or pending cap.",
+    "mechanism": "parallel tool calls in one run"
+  },
+  {
+    "runtime": "agno",
+    "version": "3.1.3",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/agno_T1.log",
+    "explanation": "BY CONSTRUCTION (dagger): the pause is a ToolExecution on run_response in the same process; setting confirmed=True + continue_run authorizes it. Measured: out-of-process resume via the AgentOS /continue endpoint; a SEPARATE-PRINCIPAL approver ships (@approval admin-only resolve) but is NON-DEFAULT (requires user_isolation=True; the default lets an approvals:write requester self-resolve).",
+    "mechanism": "requires_confirmation + continue_run; @approval admin-only resolve (AgentOS)",
+    "marker": "dagger",
+    "counted": false,
+    "p1": {
+      "oop_resume": "Y",
+      "separate_principal_approver": "non-default",
+      "oop_evidence": "AgentOS POST /continue by run_id (real HTTP)"
+    },
+    "markers": [
+      "dagger"
+    ]
+  },
+  {
+    "runtime": "agno",
+    "version": "3.1.3",
+    "test": "T2_P2_effect_binding",
+    "outcome": "fail",
+    "evidence": "results/evidence/agno_T2.log",
+    "explanation": "the documented AgentOS continue endpoint accepts a client-supplied tools JSON and executes its tool_args; nothing binds the approved call to the executed one (Loopjacking class). Reproduced over real HTTP on agno==3.1.3; see evidence/agno_agentos_versions.log for the version sweep.",
+    "mechanism": "AgentOS POST /continue (remote continue path)",
+    "levels": {
+      "L1": "substituted (in-process tool_args mutation) \u2014 not a binding gap",
+      "L2": "substituted",
+      "L3": "substituted"
+    }
+  },
+  {
+    "runtime": "agno",
+    "version": "3.1.3",
+    "test": "T3_P3_single_use",
+    "outcome": "partial",
+    "evidence": "results/evidence/agno_T3.log",
+    "explanation": "a remote continue replay is consumed relative to the stored run state (no re-execution on re-POST on this version); the confirmation carries no nonce/expiry and an in-process rollback of the paused run double-executes.",
+    "mechanism": "remote replay + in-process rollback",
+    "qualifier": "STATE",
+    "levels": {
+      "same_call": "consumed relative to run state",
+      "rollback": "double-exec",
+      "cross_call": "n/a"
+    }
+  },
+  {
+    "runtime": "agno",
+    "version": "3.1.3",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "partial",
+    "evidence": "results/evidence/agno_T4.log",
+    "explanation": "structured tool_name/tool_args available, but no framework-enforced trusted rendering path separate from the agent surface. [J] judgement rationale: source/API review: paused ToolExecution tool_name/tool_args are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "mechanism": "paused ToolExecution fields",
+    "qualifier": "INT",
+    "judgement": true,
+    "rationale": "source/API review: paused ToolExecution tool_name/tool_args are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "agno",
+    "version": "3.1.3",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/agno_T5.log",
+    "explanation": "approval stored as an unsigned boolean / attributed record; no verifiable receipt over the effect. [J] judgement rationale: source/API review: ToolExecution.confirmed / approval record is an unsigned field; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "mechanism": "unsigned ToolExecution.confirmed / approval record",
+    "judgement": true,
+    "rationale": "source/API review: ToolExecution.confirmed / approval record is an unsigned field; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "agno",
+    "version": "3.1.3",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "fail",
+    "evidence": "results/evidence/agno_T6.log",
+    "explanation": "a single run paused on 20 tool confirmations with no built-in rate limit / pending cap.",
+    "mechanism": "parallel tool calls in one run"
+  },
+  {
+    "runtime": "pydantic-ai",
+    "version": "2.56.0",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/pydantic_ai_T1.log",
+    "explanation": "BY CONSTRUCTION (dagger): approval is a DeferredToolRequests object returned into the same process; the application constructs ToolApproved()/DeferredToolResults in-process. Measured: out-of-process resume is possible (serializable history + resume API); the SDK ships no separate-principal approver.",
+    "mechanism": "requires_approval=True + DeferredToolResults",
+    "marker": "dagger",
+    "counted": false,
+    "p1": {
+      "oop_resume": "Y",
+      "separate_principal_approver": "no",
+      "oop_evidence": "ModelMessagesTypeAdapter round-trip + resume API"
+    },
+    "markers": [
+      "dagger"
+    ]
+  },
+  {
+    "runtime": "pydantic-ai",
+    "version": "2.56.0",
+    "test": "T2_P2_effect_binding",
+    "outcome": "fail",
+    "evidence": "results/evidence/pydantic_ai_T2.log",
+    "explanation": "resume() accepts a caller-supplied message_history; a party holding the stored history edits the recorded ToolCallPart.args and a plain ToolApproved() then executes the tampered effect. Same state-holder capability that makes LangGraph and Agno fail, so this cell is FAIL (not PASS).",
+    "mechanism": "caller-supplied message_history on resume",
+    "levels": {
+      "L1": "substituted (ToolApproved(override_args=...)) \u2014 documented approver channel, not a gap",
+      "L2": "substituted",
+      "L3": "substituted (message history IS the backing store; same as L2)"
+    }
+  },
+  {
+    "runtime": "pydantic-ai",
+    "version": "2.56.0",
+    "test": "T3_P3_single_use",
+    "outcome": "partial",
+    "evidence": "results/evidence/pydantic_ai_T3.log",
+    "explanation": "replay against the post-execution history is rejected (no unprocessed tool calls), but the approval has no nonce/consumption of its own: re-applying the same results to the pre-execution history (a rollback) double-executes \u2014 the same behaviour as openai-agents/langgraph/agno.",
+    "mechanism": "post-exec replay vs rollback",
+    "qualifier": "STATE",
+    "levels": {
+      "same_call": "rejected (no unprocessed tool calls)",
+      "rollback": "double-exec",
+      "cross_call": "n/a"
+    }
+  },
+  {
+    "runtime": "pydantic-ai",
+    "version": "2.56.0",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "partial",
+    "evidence": "results/evidence/pydantic_ai_T4.log",
+    "explanation": "structured tool name/args are available for a trusted card, but the framework renders nothing and enforces no trusted path or untrusted-text separation. [J] judgement rationale: source/API review: DeferredToolRequests.approvals ToolCallParts are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "mechanism": "DeferredToolRequests.approvals (ToolCallPart)",
+    "qualifier": "INT",
+    "judgement": true,
+    "rationale": "source/API review: DeferredToolRequests.approvals ToolCallParts are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "pydantic-ai",
+    "version": "2.56.0",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/pydantic_ai_T5.log",
+    "explanation": "approval is an unsigned dataclass decision; no cryptographic receipt. [J] judgement rationale: source/API review: ToolApproved/DeferredToolResults are unsigned dataclasses; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "mechanism": "unsigned ToolApproved/DeferredToolResults",
+    "judgement": true,
+    "rationale": "source/API review: ToolApproved/DeferredToolResults are unsigned dataclasses; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "pydantic-ai",
+    "version": "2.56.0",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "fail",
+    "evidence": "results/evidence/pydantic_ai_T6.log",
+    "explanation": "a single model turn raised 20 pending approvals in one run; no built-in rate limit / pending cap.",
+    "mechanism": "parallel tool calls in one run"
+  },
+  {
+    "runtime": "crewai",
+    "version": "1.15.27",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/crewai_T1.log",
+    "explanation": "BY CONSTRUCTION (dagger): human_input is a terminal input() prompt on the agent process's own stdin; anything controlling that process (an empty line accepts) answers it. No second factor; the feedback is not serialized for an out-of-process reviewer and no separate-principal approver is shipped.",
+    "mechanism": "Task(human_input=True) post-hoc feedback",
+    "marker": "dagger",
+    "counted": false,
+    "p1": {
+      "oop_resume": "N",
+      "separate_principal_approver": "no",
+      "oop_evidence": "blocking builtins.input() on process stdin"
+    },
+    "markers": [
+      "dagger"
+    ]
+  },
+  {
+    "runtime": "crewai",
+    "version": "1.15.27",
+    "test": "T2_P2_effect_binding",
+    "outcome": "na",
+    "evidence": "results/evidence/crewai_T2.log",
+    "explanation": "human_input is a post-hoc feedback primitive, not an effect-bound approval; scored n/a for consistency with other feedback primitives. See the before_tool_call gate row. [J] judgement rationale: Task(human_input=True) (post-hoc feedback) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "mechanism": "Task(human_input=True)",
+    "judgement": true,
+    "rationale": "Task(human_input=True) (post-hoc feedback) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "crewai",
+    "version": "1.15.27",
+    "test": "T3_P3_single_use",
+    "outcome": "na",
+    "evidence": "results/evidence/crewai_T3.log",
+    "explanation": "no approval token exists to be single-use; feedback is free text with no nonce. [J] judgement rationale: Task(human_input=True) (post-hoc feedback) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "mechanism": "Task(human_input=True)",
+    "judgement": true,
+    "rationale": "Task(human_input=True) (post-hoc feedback) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "crewai",
+    "version": "1.15.27",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "na",
+    "evidence": "results/evidence/crewai_T4.log",
+    "explanation": "human_input is a feedback primitive (the human reacts to the final answer), not an approval card; scored n/a for consistency. Trusted rendering of the gate is assessed in the before_tool_call gate row. [J] judgement rationale: Task(human_input=True) (post-hoc feedback) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "mechanism": "Task(human_input=True)",
+    "judgement": true,
+    "rationale": "Task(human_input=True) (post-hoc feedback) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "crewai",
+    "version": "1.15.27",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/crewai_T5.log",
+    "explanation": "feedback/acceptance is unsigned free text; no verifiable approval record. [J] judgement rationale: source/API review: feedback is unsigned free text appended to history; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "mechanism": "Task(human_input=True)",
+    "judgement": true,
+    "rationale": "source/API review: feedback is unsigned free text appended to history; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "crewai",
+    "version": "1.15.27",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "fail",
+    "evidence": "results/evidence/crewai_T6.log",
+    "explanation": "no built-in throttle/limit on human prompts. [J] judgement rationale: source review: no throttle/pending-cap primitive exists around human_input and the feedback loop re-prompts until an empty line; no flood experiment was run",
+    "mechanism": "Task(human_input=True)",
+    "judgement": true,
+    "rationale": "source review: no throttle/pending-cap primitive exists around human_input and the feedback loop re-prompts until an empty line; no flood experiment was run",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "crewai (before_tool_call gate)",
+    "version": "1.15.27",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/crewai_gate_T1.log",
+    "explanation": "BY CONSTRUCTION (dagger): request_human_input reads the process stdin; the host answers it. No out-of-band factor; no separate-principal approver.",
+    "mechanism": "before_tool_call hook + request_human_input",
+    "marker": "dagger",
+    "counted": false,
+    "p1": {
+      "oop_resume": "N",
+      "separate_principal_approver": "no",
+      "oop_evidence": "request_human_input blocks on process stdin"
+    },
+    "markers": [
+      "dagger"
+    ]
+  },
+  {
+    "runtime": "crewai (before_tool_call gate)",
+    "version": "1.15.27",
+    "test": "T2_P2_effect_binding",
+    "outcome": "fail",
+    "evidence": "results/evidence/crewai_gate_T2.log",
+    "explanation": "the gate runs per call before execution, but ToolCallHookContext.tool_input is a documented mutable dict, so a later-registered hook changes the executed args after the approval hook showed the originals (low severity: requires a second hook).",
+    "mechanism": "before_tool_call hook (mutable tool_input)",
+    "qualifier": "LOW",
+    "levels": {
+      "L1": "n/a",
+      "L2": "substituted (later hook mutates tool_input)",
+      "L3": "n/a"
+    }
+  },
+  {
+    "runtime": "crewai (before_tool_call gate)",
+    "version": "1.15.27",
+    "test": "T3_P3_single_use",
+    "outcome": "pass",
+    "evidence": "results/evidence/crewai_gate_T3.log",
+    "explanation": "the hook is invoked per tool call before execution, so a prior approval does not authorize a later call.",
+    "mechanism": "per-call before_tool_call hook",
+    "levels": {
+      "same_call": "re-prompted",
+      "rollback": "n/a",
+      "cross_call": "re-prompted"
+    }
+  },
+  {
+    "runtime": "crewai (before_tool_call gate)",
+    "version": "1.15.27",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "partial",
+    "evidence": "results/evidence/crewai_gate_T4.log",
+    "explanation": "structured tool_name/tool_input are available for a trusted card, but rendering is the hook author's responsibility; no framework-enforced trusted path. [J] judgement rationale: source/API review: ToolCallHookContext tool_name/tool_input are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "mechanism": "ToolCallHookContext fields",
+    "qualifier": "INT",
+    "judgement": true,
+    "rationale": "source/API review: ToolCallHookContext tool_name/tool_input are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "crewai (before_tool_call gate)",
+    "version": "1.15.27",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/crewai_gate_T5.log",
+    "explanation": "the gate decision is an unsigned return value; no verifiable record. [J] judgement rationale: source/API review: the gate decision is a plain hook return value; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "mechanism": "hook return value",
+    "judgement": true,
+    "rationale": "source/API review: the gate decision is a plain hook return value; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "crewai (before_tool_call gate)",
+    "version": "1.15.27",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "not_run",
+    "evidence": "results/evidence/crewai_gate_T6.log",
+    "explanation": "flood resistance of the gate not measured here (needs a live multi-tool-call run).",
+    "mechanism": "before_tool_call hook"
+  },
+  {
+    "runtime": "autogen-agentchat",
+    "version": "0.7.5",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/autogen_T1.log",
+    "explanation": "BY CONSTRUCTION (dagger): the user's reply is produced by input_func (default stdin of the agent process); any code in the process answers it, and the reply re-enters the same message stream the agent drives. No out-of-band factor; no separate-principal approver.",
+    "mechanism": "UserProxyAgent.input_func",
+    "marker": "dagger",
+    "counted": false,
+    "p1": {
+      "oop_resume": "N",
+      "separate_principal_approver": "no",
+      "oop_evidence": "input_func default is cancellable_input on process stdin"
+    },
+    "markers": [
+      "dagger"
+    ]
+  },
+  {
+    "runtime": "autogen-agentchat",
+    "version": "0.7.5",
+    "test": "T2_P2_effect_binding",
+    "outcome": "na",
+    "evidence": "results/evidence/autogen_T2.log",
+    "explanation": "UserProxyAgent is a conversational input turn, not an effect-bound approval; scored n/a for consistency. See the CodeExecutorAgent.approval_func gate row. [J] judgement rationale: UserProxyAgent (a conversational input turn) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "mechanism": "UserProxyAgent conversational turn",
+    "judgement": true,
+    "rationale": "UserProxyAgent (a conversational input turn) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "autogen-agentchat",
+    "version": "0.7.5",
+    "test": "T3_P3_single_use",
+    "outcome": "na",
+    "evidence": "results/evidence/autogen_T3.log",
+    "explanation": "no approval token exists to be single-use; the reply is plain conversation text. [J] judgement rationale: UserProxyAgent (a conversational input turn) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "mechanism": "UserProxyAgent conversational turn",
+    "judgement": true,
+    "rationale": "UserProxyAgent (a conversational input turn) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "autogen-agentchat",
+    "version": "0.7.5",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "na",
+    "evidence": "results/evidence/autogen_T4.log",
+    "explanation": "UserProxyAgent is a conversational turn, not an approval card; scored n/a for consistency. Trusted rendering of the gate is assessed in the approval_func row. [J] judgement rationale: UserProxyAgent (a conversational input turn) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "mechanism": "UserProxyAgent conversational turn",
+    "judgement": true,
+    "rationale": "UserProxyAgent (a conversational input turn) is not an effect-bound approval mechanism (auditor classification from its documented purpose); scored n/a for consistency, not measured",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "autogen-agentchat",
+    "version": "0.7.5",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/autogen_T5.log",
+    "explanation": "approval is unsigned chat text; no verifiable record. [J] judgement rationale: source/API review: the reply is an unsigned TextMessage; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "mechanism": "unsigned TextMessage",
+    "judgement": true,
+    "rationale": "source/API review: the reply is an unsigned TextMessage; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "autogen-agentchat",
+    "version": "0.7.5",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "fail",
+    "evidence": "results/evidence/autogen_T6.log",
+    "explanation": "no built-in rate limit / pending cap on human-input requests.",
+    "mechanism": "UserProxyAgent conversational turn"
+  },
+  {
+    "runtime": "autogen-agentchat (CodeExecutorAgent.approval_func)",
+    "version": "0.7.5",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/autogen_gate_T1.log",
+    "explanation": "BY CONSTRUCTION (dagger): approval_func is a callback the host supplies and that runs in the agent process; no out-of-band factor, no separate-principal approver.",
+    "mechanism": "CodeExecutorAgent(approval_func=...)",
+    "marker": "dagger",
+    "counted": false,
+    "p1": {
+      "oop_resume": "N",
+      "separate_principal_approver": "no",
+      "oop_evidence": "approval_func is an in-process callback"
+    },
+    "markers": [
+      "dagger"
+    ]
+  },
+  {
+    "runtime": "autogen-agentchat (CodeExecutorAgent.approval_func)",
+    "version": "0.7.5",
+    "test": "T2_P2_effect_binding",
+    "outcome": "pass",
+    "evidence": "results/evidence/autogen_gate_T2.log",
+    "explanation": "the approval callback receives the exact code that will run and execution uses that same code, so the approved effect equals the executed effect (local binding).",
+    "mechanism": "approval_func receives the exact code",
+    "levels": {
+      "L1": "n/a",
+      "L2": "resist (same code object approved and executed)",
+      "L3": "n/a"
+    }
+  },
+  {
+    "runtime": "autogen-agentchat (CodeExecutorAgent.approval_func)",
+    "version": "0.7.5",
+    "test": "T3_P3_single_use",
+    "outcome": "pass",
+    "evidence": "results/evidence/autogen_gate_T3.log",
+    "explanation": "each code execution requests its own approval; a prior approval does not carry over.",
+    "mechanism": "per-execution approval_func",
+    "levels": {
+      "same_call": "re-approved",
+      "rollback": "n/a",
+      "cross_call": "re-approved"
+    }
+  },
+  {
+    "runtime": "autogen-agentchat (CodeExecutorAgent.approval_func)",
+    "version": "0.7.5",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "partial",
+    "evidence": "results/evidence/autogen_gate_T4.log",
+    "explanation": "the exact code is available to a trusted renderer, but the SDK renders nothing; rendering is the integrator's responsibility (INT). [J] judgement rationale: source/API review: ApprovalRequest.code/context are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "mechanism": "ApprovalRequest.code",
+    "qualifier": "INT",
+    "judgement": true,
+    "rationale": "source/API review: ApprovalRequest.code/context are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "autogen-agentchat (CodeExecutorAgent.approval_func)",
+    "version": "0.7.5",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/autogen_gate_T5.log",
+    "explanation": "the approval response is an unsigned dataclass; no verifiable record. [J] judgement rationale: source/API review: ApprovalResponse(approved, reason) is an unsigned dataclass; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "mechanism": "unsigned ApprovalResponse",
+    "judgement": true,
+    "rationale": "source/API review: ApprovalResponse(approved, reason) is an unsigned dataclass; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "autogen-agentchat (CodeExecutorAgent.approval_func)",
+    "version": "0.7.5",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "not_run",
+    "evidence": "results/evidence/autogen_gate_T6.log",
+    "explanation": "flood resistance of the gate not measured here.",
+    "mechanism": "CodeExecutorAgent(approval_func=...)"
+  },
+  {
+    "runtime": "smolagents",
+    "version": "1.26.0",
+    "test": "T1_P1_agent_independence",
+    "outcome": "na",
+    "evidence": "results/evidence/smolagents_T1.log",
+    "explanation": "no built-in human-approval mechanism; interrupt() is a kill switch and step_callbacks are post-hoc in-process observers. Any approval is DIY and agent-reachable."
+  },
+  {
+    "runtime": "smolagents",
+    "version": "1.26.0",
+    "test": "T2_P2_effect_binding",
+    "outcome": "na",
+    "evidence": "results/evidence/smolagents_T2.log",
+    "explanation": "no approval mechanism, hence no effect binding; tools execute without a built-in human gate."
+  },
+  {
+    "runtime": "smolagents",
+    "version": "1.26.0",
+    "test": "T3_P3_single_use",
+    "outcome": "na",
+    "evidence": "results/evidence/smolagents_T3.log",
+    "explanation": "no approval token exists to be single-use."
+  },
+  {
+    "runtime": "smolagents",
+    "version": "1.26.0",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "na",
+    "evidence": "results/evidence/smolagents_T4.log",
+    "explanation": "no approval surface, hence no trusted rendering; nothing is shown to a human by the framework before a tool runs."
+  },
+  {
+    "runtime": "smolagents",
+    "version": "1.26.0",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "na",
+    "evidence": "results/evidence/smolagents_T5.log",
+    "explanation": "no approval record exists, signed or otherwise."
+  },
+  {
+    "runtime": "smolagents",
+    "version": "1.26.0",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "na",
+    "evidence": "results/evidence/smolagents_T6.log",
+    "explanation": "no approval requests are generated by the framework, so no rate-limit primitive applies; equally none is provided for integrator-built gates."
+  },
+  {
+    "runtime": "mcp",
+    "version": "2.3.0",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/mcp_T1.log",
+    "explanation": "BY CONSTRUCTION (dagger): elicitation is answered by the client's elicitation_callback over the same MCP session; in an agentic host the callback is programmatic and resident in the agent host. Measured: the client is a separate process from the tool server (so out-of-process review is structurally possible with a trusted client), but no separate-principal approver is shipped \u2014 the SDK docstring says an agent client may auto-generate the response.",
+    "mechanism": "ctx.elicit() over the MCP session",
+    "marker": "dagger",
+    "counted": false,
+    "p1": {
+      "oop_resume": "Y",
+      "separate_principal_approver": "no",
+      "oop_evidence": "client is a distinct process from the tool server; default callback is programmatic"
+    },
+    "markers": [
+      "dagger"
+    ]
+  },
+  {
+    "runtime": "mcp",
+    "version": "2.3.0",
+    "test": "T2_P2_effect_binding",
+    "outcome": "pass",
+    "evidence": "results/evidence/mcp_T2.log",
+    "explanation": "the server builds the elicitation message from its own held arguments and executes those same arguments on a bare accept, so what the human is shown equals what runs; the agent cannot substitute them. (FAIL only under an adversarial-server threat model, which no other runtime's PASS cell assumes either.)",
+    "mechanism": "server-held args + ctx.elicit message",
+    "levels": {
+      "L1": "n/a",
+      "L2": "resist (agent cannot alter the server-held args after the call)",
+      "L3": "substituted ONLY if the tool server itself is adversarial (different threat model)"
+    }
+  },
+  {
+    "runtime": "mcp",
+    "version": "2.3.0",
+    "test": "T3_P3_single_use",
+    "outcome": "na",
+    "evidence": "results/evidence/mcp_T3.log",
+    "explanation": "no reusable approval token; accept/decline is a per-request response with no nonce bound to an effect. [J] judgement rationale: API review: ElicitResult is a per-request {action, content} response with no reusable token, so single-use has nothing to apply to; n/a is the auditor's classification, not measured",
+    "mechanism": "per-request ElicitResult",
+    "judgement": true,
+    "rationale": "API review: ElicitResult is a per-request {action, content} response with no reusable token, so single-use has nothing to apply to; n/a is the auditor's classification, not measured",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "mcp",
+    "version": "2.3.0",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "partial",
+    "evidence": "results/evidence/mcp_T4.log",
+    "explanation": "the human sees a SERVER-authored free-text message (the server is the tool side, not the LLM agent) plus a schema; the client renders that string. Like the SDK integrators, trusted rendering from the structured descriptor is the server author's responsibility \u2014 INT, not an enforced trusted path. [J] judgement rationale: source/API review: the elicitation message (server-authored) + schema are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "mechanism": "ctx.elicit(message, schema)",
+    "qualifier": "INT",
+    "judgement": true,
+    "rationale": "source/API review: the elicitation message (server-authored) + schema are exposed as structured data and the framework ships no renderer or untrusted-text box; no rendering experiment can select PASS/PART/FAIL, so PART/INT is the auditor's reading of the API surface",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "mcp",
+    "version": "2.3.0",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/mcp_T5.log",
+    "explanation": "elicitation responses are unsigned; no verifiable approval record. [J] judgement rationale: source/API review: ElicitResult is unsigned JSON; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "mechanism": "unsigned ElicitResult",
+    "judgement": true,
+    "rationale": "source/API review: ElicitResult is unsigned JSON; absence of any signing/receipt code path was established by reading the API, not by an experiment whose observed value selects FAIL",
+    "counted": false,
+    "marker": "J",
+    "markers": [
+      "J"
+    ]
+  },
+  {
+    "runtime": "mcp",
+    "version": "2.3.0",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "fail",
+    "evidence": "results/evidence/mcp_T6.log",
+    "explanation": "the SDK imposes no rate limit / pending-cap on elicitation requests; a server (or a tool-calling agent) can raise them without bound.",
+    "mechanism": "repeated ctx.elicit in one session"
+  },
+  {
+    "runtime": "openclaw",
+    "version": "2026.10.3",
+    "test": "T1_P1_agent_independence",
+    "outcome": "fail",
+    "evidence": "results/evidence/openclaw_T1.log",
+    "explanation": "STATIC (by default): with sandboxing off and exec defaulting to mode=full on the gateway host, the agent's exec runs as the operator credential with no per-call approval; vendor docs state gateway callers are not a per-user auth boundary. An operator-mediated / sandboxed / remote-node config MAY be agent-independent (PART-s) but that was not executed. Measurable P1 columns recorded. [J] judgement rationale: static source/doc review of default topology (sandbox off, exec mode=full); not executed",
+    "mechanism": "exec approvals (gateway operator path vs chat /approve)",
+    "marker": "static",
+    "counted": false,
+    "p1": {
+      "oop_resume": "Y",
+      "separate_principal_approver": "non-default",
+      "oop_evidence": "Gateway/CLI operator path exists (operator.admin scope); off by default (exec mode=full), not executed"
+    },
+    "judgement": true,
+    "rationale": "static source/doc review of default topology (sandbox off, exec mode=full); not executed",
+    "markers": [
+      "static",
+      "J"
+    ]
+  },
+  {
+    "runtime": "openclaw",
+    "version": "2026.10.3",
+    "test": "T2_P2_effect_binding",
+    "outcome": "partial",
+    "evidence": "results/evidence/openclaw_T2.log",
+    "explanation": "STATIC (not executed): the shipped source and docs indicate exec grants are bound to argv + cwd (post the Loopjacking representation-mismatch fix), but this is a source/doc review, not a live approval loop, and the vendor documents gaps (inner shell executables, best-effort file binding). Capped at PART-s; a static review can support an absence (FAIL) but not establish that a property holds. [J] judgement rationale: static source/doc review (argv+cwd binding tokens and docs); capped at PART-s; not executed",
+    "mechanism": "exec grant argv+cwd binding (source/doc)",
+    "marker": "static",
+    "counted": false,
+    "qualifier": "STATIC",
+    "judgement": true,
+    "rationale": "static source/doc review (argv+cwd binding tokens and docs); capped at PART-s; not executed",
+    "markers": [
+      "static",
+      "J"
+    ]
+  },
+  {
+    "runtime": "openclaw",
+    "version": "2026.10.3",
+    "test": "T3_P3_single_use",
+    "outcome": "partial",
+    "evidence": "results/evidence/openclaw_T3.log",
+    "explanation": "STATIC (not executed): the source shows allow-once single-shot resolution and expiry fields, and allow-always is a documented scoped standing grant; but this is a keyword/source review, not a live replay test. Capped at PART-s. [J] judgement rationale: static source review (allow-once / expiry tokens); capped at PART-s; not executed",
+    "mechanism": "allow-once / expiry (source)",
+    "marker": "static",
+    "counted": false,
+    "qualifier": "STATIC",
+    "judgement": true,
+    "rationale": "static source review (allow-once / expiry tokens); capped at PART-s; not executed",
+    "markers": [
+      "static",
+      "J"
+    ]
+  },
+  {
+    "runtime": "openclaw",
+    "version": "2026.10.3",
+    "test": "T4_P4_trusted_rendering",
+    "outcome": "partial",
+    "evidence": "results/evidence/openclaw_T4.log",
+    "explanation": "STATIC (not executed): the shipped sanitizer (escapes invisibles, redacts secrets) and the documented 'Full request text' block indicate the exec approval card is rendered from the structured command by trusted code; but no rendering was executed, so this is capped at PART-s rather than PASS. [J] judgement rationale: static source review (sanitizeExecApprovalDisplayText); capped at PART-s; not executed",
+    "mechanism": "sanitizeExecApprovalDisplayText (source)",
+    "marker": "static",
+    "counted": false,
+    "qualifier": "STATIC",
+    "judgement": true,
+    "rationale": "static source review (sanitizeExecApprovalDisplayText); capped at PART-s; not executed",
+    "markers": [
+      "static",
+      "J"
+    ]
+  },
+  {
+    "runtime": "openclaw",
+    "version": "2026.10.3",
+    "test": "T5_P5_non_repudiation",
+    "outcome": "fail",
+    "evidence": "results/evidence/openclaw_T5.log",
+    "explanation": "STATIC (by absence): no detached cryptographic signature over the effect was found in the approval modules; approvals are attributed records in Gateway state, not third-party verifiable without trusting the Gateway. (A static review can support FAIL by absence; labelled static.) [J] judgement rationale: static review by absence of approval-record signing code; not executed",
+    "mechanism": "approval record signing (source, by absence)",
+    "marker": "static",
+    "counted": false,
+    "judgement": true,
+    "rationale": "static review by absence of approval-record signing code; not executed",
+    "markers": [
+      "static",
+      "J"
+    ]
+  },
+  {
+    "runtime": "openclaw",
+    "version": "2026.10.3",
+    "test": "T6_P7_flood_resistance",
+    "outcome": "partial",
+    "evidence": "results/evidence/openclaw_T6.log",
+    "explanation": "STATIC (not executed): dedupe/expiry tokens appear in dist (including non-approval modules), suggesting some flood resistance, but no explicit rate limit / pending cap / lockout was located and nothing was executed. Capped at PART-s (grep-level). [J] judgement rationale: static grep for dedupe/expiry tokens; no cap/rate-limit located; not executed",
+    "mechanism": "dedupe/expiry tokens (source)",
+    "marker": "static",
+    "counted": false,
+    "qualifier": "STATIC",
+    "judgement": true,
+    "rationale": "static grep for dedupe/expiry tokens; no cap/rate-limit located; not executed",
+    "markers": [
+      "static",
+      "J"
+    ]
+  },
+  {
+    "runtime": "claude-code",
+    "version": "n/a",
+    "test": "ALL",
+    "outcome": "not_run",
+    "evidence": "local_probes/claude-code.md",
+    "explanation": "proprietary CLI; not executed here. Manual/local test procedure in audit/local_probes/claude-code.md (run by the author on their Mac)."
+  },
+  {
+    "runtime": "codex-cli",
+    "version": "n/a",
+    "test": "ALL",
+    "outcome": "not_run",
+    "evidence": "local_probes/codex-cli.md",
+    "explanation": "proprietary CLI; not executed here. Manual/local test procedure in audit/local_probes/codex-cli.md (run by the author on their Mac)."
+  },
+  {
+    "runtime": "cursor",
+    "version": "n/a",
+    "test": "ALL",
+    "outcome": "not_run",
+    "evidence": "local_probes/cursor.md",
+    "explanation": "proprietary CLI; not executed here. Manual/local test procedure in audit/local_probes/cursor.md (run by the author on their Mac)."
+  }
+]

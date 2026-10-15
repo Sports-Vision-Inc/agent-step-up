@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asu-gateway"
+version = "0.2.0"
+description = "Agent Step-Up (ASU): multi-factor authentication for AI agent actions"
+readme = "SPEC.md"
+requires-python = ">=3.10"
+authors = [{ name = "Sai Varun Kodathala" }]
+# Upper bounds (CR-11): the security-critical paths depend on py_webauthn's
+# verification semantics and on cryptography / idna behaviour; a new major
+# version must be re-tested before it is allowed. Versions the evaluation was
+# run with: fastapi 0.143.0, starlette 1.6.0, uvicorn 0.53.0, PyYAML 6.0.3,
+# cryptography 50.0.1, webauthn 3.0.1, PyOTP 2.10.0, httpx 0.28.1, idna 3.20,
+# itsdangerous 2.2.0, cbor2 6.1.5, rfc8785 0.1.4, pydantic 2.13.5 (Python 3.13).
+dependencies = [
+    "fastapi>=0.110,<1",
+    "uvicorn>=0.27,<1",
+    "pyyaml>=6.0,<7",
+    "cryptography>=42,<51",
+    "webauthn>=2.0,<4",
+    "pyotp>=2.9,<3",
+    "httpx>=0.27,<1",
+    "idna>=3.6,<4",
+    "itsdangerous>=2.1,<3",
+    "cbor2>=5.4,<7",
+    "rfc8785>=0.1.2,<0.2",
+    "pydantic>=2,<3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4,<10", "playwright>=1.40,<2"]
+
+[project.scripts]
+asu = "asu.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["asu*"]
+
+[tool.setuptools.package-data]
+asu = ["policies/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

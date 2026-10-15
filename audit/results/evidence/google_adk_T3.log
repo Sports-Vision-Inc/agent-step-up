@@ -1,0 +1,4 @@
+T3 same_call: first confirm ledger_len=1; replayed identical confirmation -> ledger_len=1
+T3 rollback: restored the pre-execution session snapshot and resent the confirmation -> executions of the approved call = 2 (error=None)
+T3 rollback (supplementary, documented Runner.rewind_async): rewind_async before the request invocation then resend -> executions=1 error=ValueError: Function call not found for function response ids: {'adk-<id>'}. Ensure each function re (the confirming run resumes the same invocation, so the rewind also removes the pending request)
+T3 cross_call: second call pending (confirmation raised=True); old confirmation re-sent -> new executions=0

@@ -1,0 +1,1 @@
+T6 (single run): one invoke fanned out to 20 interrupting nodes -> 20 pending interrupts in ONE run, no throttle/cap.

@@ -1,0 +1,1 @@
+T4: the panel shows 'the Final Result above', i.e. the model's own produced answer (narration), plus a fixed instruction string. No descriptor-derived card, no untrusted-text separation: the human reviews model text.

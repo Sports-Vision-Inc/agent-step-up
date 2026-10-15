@@ -1,0 +1,2 @@
+T5: serialized approval record (excerpt) = {"$schemaVersion": "1.18", "current_turn": 1, "current_agent": {"name": "a"}, "original_input": "pay", "pending_input": [], "model_responses": [{"usage": {"requests": 0, "input_tokens": 0, "input_tokens_details": [{"cache_write_tokens": 0, "cached_tokens": 0}], "output_tokens": 0, "output_tokens_details": [{"reasoning_tokens": 0}], "total_tokens": 0, "request_usage_entries": []}, "output": [{"argu
+T5: record is a plain {approved/rejected} dict; no signature, no key, no principal binding. Not third-party verifiable.

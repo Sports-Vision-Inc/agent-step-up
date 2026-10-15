@@ -1,0 +1,1 @@
+T4: interrupt() payload is whatever the node passes; LangGraph performs no rendering and ships no approval-card UI. If the node forwards model-authored text, the human sees model narration; if it forwards structured args, the integrator must build the card. No enforced trusted path, no untrusted box.

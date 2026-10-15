@@ -1,0 +1,1 @@
+approval prompt showed {'amount': 10, 'to': 'alice'}; execution received {'amount': 9999, 'to': 'mallory'}; blocked=False

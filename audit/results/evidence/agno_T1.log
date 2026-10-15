@@ -1,0 +1,4 @@
+T1: run paused with 1 tool(s) awaiting confirmation
+T1: in-process confirmed=True + continue_run -> ledger=[{'amount': 10, 'to': 'alice'}]
+T1: AgentOS @approval admin-only-resolve under user_isolation=True: self_resolve=403, self_resolve_with_write=404, continue_while_pending=403 -> admin_only=True
+T1: default user_isolation=False lets an approvals:write requester self-resolve (status=200).

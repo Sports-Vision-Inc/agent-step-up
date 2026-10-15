@@ -1,0 +1,87 @@
+/*
+ * V3 'no consumption' MUTANT of ASU (no implementation counterpart; critique
+ * F9): the approved state is persistent, so one approval can be executed
+ * repeatedly. Expected: L2_single_use FALSIFIED; everything else holds.
+ * Same rules as asu.spthy restricted to the no-grant, H1-H3 fragment, except
+ * that ApprovedSt is a persistent (!) fact.
+ */
+theory ASU_V3_Replay
+begin
+
+builtins: signing, hashing
+
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+restriction FirstEnrollmentOnce:
+  "All U #i #j. OnlyOnce(U) @ #i & OnlyOnce(U) @ #j ==> #i = #j"
+
+rule Register_Device:
+    [ Fr(~sk) ]
+  --[ OnlyOnce($U), Register($U, pk(~sk)) ]->
+    [ !Ltk($U, ~sk), !Pk($U, pk(~sk)), Out(pk(~sk)) ]
+
+rule Compromise_Device:
+    [ !Ltk(U, sk) ]
+  --[ Compromise(U) ]->
+    [ Out(sk) ]
+
+rule Gateway_ToolCall:
+    [ In(<'call', U, e>), !Pk(U, pkU), Fr(~aid) ]
+  --[ Challenge(U, ~aid, e) ]->
+    [ Pending(U, ~aid, e), ToDevice(U, ~aid, e), Out(~aid) ]
+
+rule Human_DecidesOnTrustedFields:
+    [ ToDevice(U, aid, e), !Ltk(U, sk) ]
+  --[ HumanApproves(U, aid, e), Signed(U, aid, h(e)) ]->
+    [ Out(sign(<'ASU-APPROVAL-v2', h(e), aid, 'null'>, sk)) ]
+
+rule Gateway_Verify:
+    [ Pending(U, aid, e), In(s), !Pk(U, pkU) ]
+  --[ Eq(verify(s, <'ASU-APPROVAL-v2', h(e), aid, 'null'>, pkU), true),
+      Approved(U, aid, e) ]->
+    [ !ApprovedSt(U, aid, e, s) ]
+
+/* MUTATION: the approval is not consumed. */
+rule Gateway_Execute:
+    [ !ApprovedSt(U, aid, e, s), In(<'exec', aid, e2>) ]
+  --[ Eq(h(e2), h(e)), Execute(U, aid, e) ]->
+    [ Out(<'receipt', U, aid, h(e), 'null', s>) ]
+
+rule Judge_Accept:
+    [ In(<'receipt', U, aid, hd, gd, s>), !Pk(U, pkU) ]
+  --[ Eq(verify(s, <'ASU-APPROVAL-v2', hd, aid, gd>, pkU), true),
+      JudgeAccepts(U, aid, hd) ]->
+    [ ]
+
+lemma exec_possible: exists-trace
+  "Ex U aid e #i. Execute(U, aid, e) @ #i & not (Ex #k. Compromise(U) @ #k)"
+
+lemma judge_possible: exists-trace
+  "Ex U aid hd #i. JudgeAccepts(U, aid, hd) @ #i & not (Ex #k. Compromise(U) @ #k)"
+
+lemma L1_effect_binding:
+  "All U aid e #i. Execute(U, aid, e) @ #i ==>
+     (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+lemma L1_sig_binding:
+  "All U aid e #i. Execute(U, aid, e) @ #i ==>
+     (Ex #j. Signed(U, aid, h(e)) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+lemma L2_single_use:
+  "All U1 U2 aid e1 e2 #i #j.
+     Execute(U1, aid, e1) @ #i & Execute(U2, aid, e2) @ #j ==> #i = #j"
+
+lemma L3_agent_independence:
+  "All U aid e #i. Approved(U, aid, e) @ #i ==>
+     (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+lemma L4_non_repudiation:
+  "All U aid hd #i. JudgeAccepts(U, aid, hd) @ #i ==>
+     (Ex #j. Signed(U, aid, hd) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+end

@@ -1,0 +1,16 @@
+.env
+*.db
+*.sqlite*
+__pycache__/
+.pytest_cache/
+formal/bin/
+audit/.envs/
+**/node_modules/
+paper/build/
+*.ledger.jsonl
+
+# attack-suite third-party clones (reproduced via attacks/targets.py)
+attacks/.targets/
+.venv/
+*.egg-info/
+experiments/results/live_llm_approver_cache.jsonl

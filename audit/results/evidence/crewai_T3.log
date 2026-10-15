@@ -1,0 +1,1 @@
+T3: feedback is a plain string compared to empty; no nonce/expiry/consumption token. The loop simply re-prompts until an empty line. Replay is not a concept.

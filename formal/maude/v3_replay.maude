@@ -1,0 +1,31 @@
+*** V3 "no consumption": identical to ASU except an approved approval is not
+*** consumed on execution (persistent state), so it can be replayed.
+*** Mirrors v3_replay.spthy. Expected: L2 FALSIFIED.
+load common.maude
+
+mod V3-MODEL is
+  including ASU-ADV .
+  vars U A N E E2 S : Msg . vars K ES : MsgSet .
+  vars F B Q BB XX : Nat . var L : Log .
+
+  crl [call] : fresh(F, B) effs(E ; ES) ik(K) gw(U)
+   => fresh(s F, B) effs(E ; ES) ik(K ; aid(F) ; nc(F)) gw(U)
+      pending(U, aid(F), nc(F), E) todev(U, aid(F), nc(F), E)
+   if F < B .
+  rl [approve] : todev(U, A, N, E) dev(U) ik(K) log(L)
+   => dev(U) ik(K ; sig(tup(tagA, h(E), A, N), sk(U)))
+      log(L ;; approve(U, A, E) ;; signed(U, A, h(E))) .
+  crl [verify] : pending(U, A, N, E) ik(S ; K) log(L)
+   => apst(U, A, N, E) ik(S ; K) log(L ;; approved(U, A, E))
+   if S == sig(tup(tagA, h(E), A, N), sk(U)) .
+  *** apst is NOT consumed (it reappears on the right-hand side).
+  crl [exec] : apst(U, A, N, E) ik(K) effs(E2 ; ES) budget(s Q) log(L)
+   => apst(U, A, N, E) ik(K) effs(E2 ; ES) budget(Q) log(L ;; exec(U, A, E))
+   if memb(A, K) and h(E2) == h(E) .
+
+  op init : Nat Nat MsgSet -> Config .
+  var SC : MsgSet .
+  eq init(BB, XX, SC) = fresh(0, BB) budget(XX)
+            effs(eff(c1, x1) ; eff(c1, x2) ; eff(c2, x1)) scopes(SC)
+            ik(u ; pk(u) ; tagA) dev(u) gw(u) log(nil) .
+endm

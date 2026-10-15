@@ -1,0 +1,92 @@
+% Approve What, Exactly? Effect Binding and Trusted Rendering for Agent Step-Up Authorization
+% Build:  make        (pdflatex + bibtex; figures and tables come from scripts/make_figures.py)
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{mathptmx}
+\usepackage[scaled=0.92]{helvet}
+\IfFileExists{t1lmtt.fd}{\renewcommand{\ttdefault}{lmtt}}{}
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{enumitem}
+\usepackage[table]{xcolor}
+\usepackage{pifont}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds,shapes.geometric}
+\usepackage{fancyhdr}
+\usepackage{orcidlink}
+\usepackage[round,sort&compress]{natbib}
+\usepackage{hyperref}
+\usepackage[capitalize,nameinlink,noabbrev]{cleveref}
+
+\input{macros}
+\input{tables/numbers}
+\hypersetup{colorlinks=true,linkcolor=linkblue,citecolor=linkblue,urlcolor=linkblue,
+  pdftitle={Approve What, Exactly? Effect Binding and Trusted Rendering for Agent Step-Up Authorization},
+  pdfauthor={Sai Varun Kodathala, Prashanth Pollishetty, Jaylen Cargill}}
+
+% ------------------------------------------------------------------ preprint style
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\textsc{Preprint}}
+\fancyhead[R]{\small Approve What, Exactly?}
+\fancyfoot[C]{\thepage}
+\captionsetup{font=small,labelfont=bf,skip=5pt}
+\setlength{\parskip}{0.35em}
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.12}
+
+\title{\bfseries Approve What, Exactly?\\[2pt]
+\Large Effect Binding and Trusted Rendering for Agent Step-Up Authorization}
+\author{%
+  Sai Varun Kodathala\,\orcidlink{0009-0002-3124-633X}\\
+  SportsVision AI\\
+  Minnetonka, MN\\
+  \href{mailto:varun@sportsvision.ai}{\texttt{varun@sportsvision.ai}}
+  \and
+  Prashanth Pollishetty\\
+  SportsVision AI\\
+  Minnetonka, MN\\
+  \href{mailto:prashanth@sportsvision.ai}{\texttt{prashanth@sportsvision.ai}}
+  \and
+  Jaylen Cargill\\
+  SportsVision AI\\
+  Minnetonka, MN\\
+  \href{mailto:jaylen@sportsvision.ai}{\texttt{jaylen@sportsvision.ai}}}
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\input{sections/abstract}
+\input{sections/introduction}
+\input{sections/background}
+\input{sections/attacks}
+\input{sections/audit}
+\input{sections/design}
+\input{sections/formal}
+\input{sections/evaluation}
+\input{sections/discussion}
+\input{sections/related}
+\input{sections/conclusion}
+\input{sections/ethics}
+
+\bibliographystyle{unsrtnat}
+\bibliography{refs}
+
+\clearpage
+\appendix
+\input{sections/appendix}
+
+\end{document}

@@ -1,0 +1,3 @@
+T1: run paused with adk_request_confirmation id=adk-878bf265-bc89-45a2-a3f4-edeae243ed30; originalFunctionCall={'id': 'fc0', 'args': {'amount': 10, 'to': 'acct-a'}, 'name': 'wire_transfer'}
+T1: in-process confirmation FunctionResponse(confirmed=True) -> ledger=[{'amount': 10, 'to': 'acct-a'}]
+T1: the confirmation travels as a FunctionResponse over the session; a session persisted to a store can be resumed by another process (oop).

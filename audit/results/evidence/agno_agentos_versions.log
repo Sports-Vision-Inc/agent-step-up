@@ -1,0 +1,6 @@
+# AgentOS remote-continue substitution / @approval across agno versions.
+# Loopjacking published range: AgentOS 2.5.6-3.0.9.
+# Run: audit/.envs/<env>/bin/python audit/probes/agno/agentos_http.py
+agno==3.1.3: remote-continue L2 substitution=True, same-call replay executions=1, @approval admin-only(user_isolation=True) self_resolve_with_write=404
+agno==3.0.9: remote-continue L2 substitution=True, same-call replay executions=2, @approval admin-only(user_isolation=True) self_resolve_with_write=None
+agno==3.0.10: remote-continue L2 substitution=True, same-call replay executions=2, @approval admin-only(user_isolation=True) self_resolve_with_write=None

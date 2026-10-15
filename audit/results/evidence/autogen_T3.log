@@ -1,0 +1,1 @@
+T3: the reply is a chat message with no nonce/expiry/consumption semantics; it is ordinary conversation history and can be reused/re-sent by the orchestrator.

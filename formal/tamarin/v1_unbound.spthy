@@ -1,0 +1,90 @@
+/*
+ * V1 'unbound' baseline (code: approval_mode "unbound", asu/gateway.py
+ * _execute_unbound + the run_approved session flag in _challenge).
+ * Out-of-band passkey approval of a per-approval SESSION challenge that does
+ * not cover h(e). The gateway executes the agent's resubmitted args, and after
+ * the first unbound approval it marks the session run_approved and executes
+ * every later challenged effect of that session with NO approval at all
+ * (via="unbound_session").
+ * Expected: L1_effect_binding and L1_sig_binding FALSIFIED (L1_sig because the
+ * device never signs any h(e) -- it signs the session challenge).
+ * No judge / L4: the code marks unbound receipts verifiable: false
+ * (asu/authn/routes.py _approval_verify_unbound), so a judge rejects them;
+ * the previous version's straw judge (critique F9) was removed.
+ * Shared abstractions: see asu.spthy and formal/README.md. Enrollment is
+ * closed (H2) and the origin honest (H3) in all baselines; there is no
+ * explanation box, so H1 holds trivially.
+ */
+theory ASU_V1_Unbound
+begin
+
+builtins: signing, hashing
+
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+restriction FirstEnrollmentOnce:
+  "All U #i #j. OnlyOnce(U) @ #i & OnlyOnce(U) @ #j ==> #i = #j"
+
+rule Register_Device:
+    [ Fr(~sk) ]
+  --[ OnlyOnce($U), Register($U, pk(~sk)) ]->
+    [ !Ltk($U, ~sk), !Pk($U, pk(~sk)), Out(pk(~sk)) ]
+
+rule Compromise_Device:
+    [ !Ltk(U, sk) ]
+  --[ Compromise(U) ]->
+    [ Out(sk) ]
+
+rule Gateway_ToolCall:
+    [ In(<'call', U, e>), !Pk(U, pkU), Fr(~aid) ]
+  --[ Challenge(U, ~aid, e) ]->
+    [ Pending(U, ~aid, e), ToDevice(U, ~aid, e), Out(~aid) ]
+
+/* Card shows e (trusted rendering), but the passkey signs a session challenge. */
+rule Device_Approve:
+    [ ToDevice(U, aid, e), !Ltk(U, sk) ]
+  --[ HumanApproves(U, aid, e), Signed(U, aid, 'session') ]->
+    [ Out(sign(<'ASU-SESSION', U, aid>, sk)) ]
+
+rule Gateway_Verify:
+    [ Pending(U, aid, e), In(s), !Pk(U, pkU) ]
+  --[ Eq(verify(s, <'ASU-SESSION', U, aid>, pkU), true), Approved(U, aid, e) ]->
+    [ ApprovedSt(U, aid, e) ]
+
+/* Executes the agent's resubmitted e2 (no digest to bind against) and marks
+   the session run_approved. */
+rule Gateway_Execute:
+    [ ApprovedSt(U, aid, e), In(<'exec', aid, e2>) ]
+  --[ Execute(U, aid, e2) ]->
+    [ !RunApproved(U) ]
+
+/* run_approved session: later challenged calls execute with no approval. */
+rule Gateway_RunApproved_Execute:
+    [ !RunApproved(U), In(<'call', U, e3>), Fr(~aid) ]
+  --[ Execute(U, ~aid, e3) ]->
+    [ ]
+
+lemma exec_possible: exists-trace
+  "Ex U aid e #i. Execute(U, aid, e) @ #i & not (Ex #k. Compromise(U) @ #k)"
+
+lemma L1_effect_binding:
+  "All U aid e #i. Execute(U, aid, e) @ #i ==>
+     (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+lemma L1_sig_binding:
+  "All U aid e #i. Execute(U, aid, e) @ #i ==>
+     (Ex #j. Signed(U, aid, h(e)) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+lemma L2_single_use:
+  "All U1 U2 aid e1 e2 #i #j.
+     Execute(U1, aid, e1) @ #i & Execute(U2, aid, e2) @ #j ==> #i = #j"
+
+lemma L3_agent_independence:
+  "All U aid e #i. Approved(U, aid, e) @ #i ==>
+     (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+   | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+end

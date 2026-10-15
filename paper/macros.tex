@@ -1,0 +1,46 @@
+% Shared macros and colours.
+\definecolor{linkblue}{HTML}{1F5FAD}
+\definecolor{aok}{HTML}{DCEFE3}
+\definecolor{abad}{HTML}{F8D8CC}
+\definecolor{apart}{HTML}{FCEBC6}
+\definecolor{ana}{HTML}{F1F0EC}
+\definecolor{cardblue}{HTML}{2A78D6}
+\definecolor{narrorange}{HTML}{EB6834}
+\definecolor{noexaqua}{HTML}{1BAF7A}
+\definecolor{inkgray}{HTML}{52514E}
+\definecolor{trustgreen}{HTML}{E8F4EC}
+\definecolor{untrustred}{HTML}{FBE9E2}
+% sequential ramp for attack success (0 = white, 10 = dark blue)
+\definecolor{asr0}{HTML}{FFFFFF}\definecolor{asr1}{HTML}{F2F7FD}\definecolor{asr2}{HTML}{E2ECF9}
+\definecolor{asr3}{HTML}{CFE0F6}\definecolor{asr4}{HTML}{B5D0F1}\definecolor{asr5}{HTML}{9BBFEC}
+\definecolor{asr6}{HTML}{7FB0EA}\definecolor{asr7}{HTML}{5C98E2}\definecolor{asr8}{HTML}{3D84DB}
+\definecolor{asr9}{HTML}{2A6FC4}\definecolor{asr10}{HTML}{1F5A9F}
+
+\newcommand{\sys}{ASU}                       % Agent Step-Up, the reference defense
+\newcommand{\Desc}{\Delta}                   % canonical effect descriptor
+\newcommand{\dig}{h}                         % descriptor digest
+\newcommand{\Hash}{\mathsf{H}}               % SHA-256
+\newcommand{\JCS}{\mathsf{JCS}}              % RFC 8785 canonicalization
+\newcommand{\Reach}{\mathsf{Reach}}
+\newcommand{\Exec}{\mathsf{Exec}}
+\newcommand{\Adv}{\mathcal{A}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\Prop}[1]{\textbf{P#1}}
+\newcommand{\Hyp}[1]{\textbf{H#1}}
+\newcommand{\AB}[1]{\textbf{AB#1}}
+\newcommand{\RQ}[1]{\textbf{RQ#1}}
+\newcommand{\ok}{\ding{51}}
+\newcommand{\no}{\ding{55}}
+% Code availability. The repository URL is filled in at release time.
+\newcommand{\codeurl}{\url{https://github.com/Sports-Vision-Inc/agent-step-up}}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{property}{Property}
+
+\crefname{property}{Property}{Properties}
+\crefname{definition}{Definition}{Definitions}
+% primitive input for generated table bodies (LaTeX's \input is not expandable inside tabular)
+\makeatletter
+\newcommand{\inputtab}[1]{\@@input #1 }
+\makeatother

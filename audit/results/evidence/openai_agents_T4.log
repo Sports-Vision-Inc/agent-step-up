@@ -1,0 +1,2 @@
+T4: ToolApprovalItem fields = name='wire_transfer' arguments='{"amount": 10, "to": "alice"}'
+T4: SDK provides NO built-in approval card renderer; the integrator decides what to show. The structured tool name + JSON args are available (framework data), but nothing forces their use over model-narrated text.

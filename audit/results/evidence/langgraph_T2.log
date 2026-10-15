@@ -1,0 +1,2 @@
+T2: human reviewed amount=10 to=alice (interrupt=[Interrupt(value={'review': 'wire transfer', 'amount': 10, 'to': 'alice'}, id='53e235dd07f287ddcceaaeaf67977163', response_schema=None)])
+T2 (L2 third-party update_state, then bare resume(True)): ledger = [{'amount': 9999, 'to': 'mallory'}]

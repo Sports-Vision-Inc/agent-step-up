@@ -1,0 +1,1 @@
+T4: ToolConfirmation fields = ['hint', 'confirmed', 'payload']; default request hint is a fixed framework string. ADK renders no card: the surface is produced by the client app from the function call name+args (data) OR by the model's own text. The confirmation request is itself a function call the model can narrate around.

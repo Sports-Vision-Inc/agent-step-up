@@ -1,0 +1,3 @@
+T1: interruptions after run = ['ToolApprovalItem']
+T1: ledger after in-process approve()+resume = [{'amount': 10, 'to': 'alice'}]
+T1: RunState.to_json()->from_json() round-trips a pending approval (reloaded=RunState); the decision can be made out of process.

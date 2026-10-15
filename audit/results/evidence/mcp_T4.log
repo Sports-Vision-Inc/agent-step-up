@@ -1,0 +1,1 @@
+T4: ctx.elicit takes a free-text `message` (server/agent-authored) + a schema. The client renders that message string; the SDK does not derive a card from a structured effect descriptor, and there is no untrusted-text box.

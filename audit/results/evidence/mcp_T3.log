@@ -1,0 +1,1 @@
+T3: ElicitResult is {action, content}; no nonce/id/expiry, not a reusable token. There is no approval artifact to replay, and equally none atomically consumed against a specific effect.

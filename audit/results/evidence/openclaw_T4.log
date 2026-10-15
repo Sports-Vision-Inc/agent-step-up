@@ -1,0 +1,2 @@
+T4: exec approval text is rendered via sanitizeExecApprovalDisplayText (present=True); escapes invisibles, redacts secrets, masks homoglyph/bypass sequences (hygiene=True).
+T4: the card text is derived by trusted code from the structured exec request and sanitized, rather than printed from raw model narration. docs/cli/approvals.md promises a losslessly-escaped 'Full request text' block.

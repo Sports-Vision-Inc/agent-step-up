@@ -1,0 +1,1 @@
+T4: DeferredToolRequests.approvals are ToolCallPart objects exposing tool_name and structured args (framework data) for the integrator to render; Pydantic AI ships no card UI and no trusted path. There is also a per-call metadata channel. Nothing forces structured rendering over showing the model's own text.

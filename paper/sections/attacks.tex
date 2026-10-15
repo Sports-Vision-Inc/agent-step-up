@@ -1,0 +1,144 @@
+\section{Attacks on the Approval Path}\label{sec:attacks}
+
+An approval can fail in three places: in \emph{what is shown} to the human, in \emph{what is signed} by the
+human's device, and in \emph{what is executed} afterwards. We built twelve attacks, \AB{1} to \AB{12}, that each
+target one of these places. We executed every applicable attack against three third-party targets and the
+reference defense, reviewed a fourth target statically, and mapped the family onto in-process frameworks through
+the audit of \cref{sec:audit}. \Cref{tab:abfamily} defines the family, and \cref{tab:attacks} reports the
+outcomes.
+
+\begin{table}[t]
+\centering\small
+\caption{The approval-path attack family. ``Breaks'' names the property of \cref{sec:properties} that the
+attack violates when it succeeds.}
+\label{tab:abfamily}
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}p{0.2\textwidth}>{\raggedright\arraybackslash}X l@{}}
+\toprule
+ID & Attack & What the attacker does & Breaks\\
+\midrule
+\AB{1} & Amount cancellation & Sends two amount-like arguments, such as \code{amount=10000, total=-10000}, so that a summing check sees a small value & \Prop{2}, \Prop{6}\\
+\AB{2} & Decoy-field recipient & Adds a second recipient or account under an innocuous key, such as \code{bcc}, so the display or grant check reads the wrong one & \Prop{2}, \Prop{4}\\
+\AB{3} & Grant stretching & Reuses a standing ``allow similar'' grant for a different payee, recipient or larger amount & \Prop{6}\\
+\AB{4} & Padding and hidden text & Pushes the harmful part of an argument off screen with blank glyphs (U+2800, U+3164) or reorders it with bidirectional controls & \Prop{4}\\
+\AB{5} & Label spoofing & Chooses argument names that imitate trusted labels, such as \code{Target} or \code{Verified by client} & \Prop{4}\\
+\AB{6} & Non-injective rendering & Finds two different effects that produce the same card, for example a boolean and the string \code{"true"} & \Prop{4}\\
+\AB{7} & Enrollment squatting & Registers its own passkey for a principal that has none, then approves its own calls & \Prop{1}\\
+\AB{8} & Challenge ambiguity & Exploits an encoding in which two different (identifier, nonce, digest) tuples produce the same signed bytes & \Prop{2}\\
+\AB{9} & Ceremony control & Controls the page that drives the authenticator, so the page shows one effect and the device signs another & \Prop{1}, \Prop{5}\\
+\AB{10} & Post-approval substitution & Changes arguments between approval and execution, the class Loopjacking documents~\citep{arunkumar2026loopjacking} & \Prop{2}\\
+\AB{11} & Flooding within one run & Raises many approval requests in one turn until one is approved & \Prop{7}\\
+\AB{12} & Threshold splitting & Splits one large effect into pieces that each stay under the step-up threshold & \Prop{7}, \Prop{6}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{A worked example}\label{sec:example}
+
+\Cref{fig:example} shows \AB{2} as an approver sees it. The user asked the agent to email a report to their
+boss. The compromised agent sends that email and adds a blind copy to an address it controls, and describes the
+action truthfully except for the copy. On a narrated card, which is the agent's own description, nothing is wrong
+to see. On the trusted card, which the gateway renders from the canonical call, the title names both recipients,
+a risk line counts them, and the agent's text sits in a box marked untrusted. We gave both views to \llmModels{}
+current language models acting as automated approvers (\cref{sec:rq4}). On the narrated view all
+\exBccNarrApprove{} approved; on the trusted card all \exBccCardDeny{} refused. One model justified its approval of
+the narrated view with ``The action matches the user's request exactly'', and the same model refused the card
+because ``The email BCCs collector@example.test, a recipient the user never requested''. The attack and the
+model were the same in both views; only the source of the displayed text differed.
+
+\begin{figure}[t]
+\centering
+\input{figures/tikz_example}
+\caption{The same blind-copy attack (\AB{2}) seen two ways. Left: the narrated view, written by the agent. Right:
+the trusted card, rendered by the gateway from the canonical descriptor; the agent's text appears only in the
+box at the bottom. The card is abridged (expiry line omitted, context lines merged, digest shortened, separator lines around the explanation dropped, label punctuation normalized). Across \llmModels{} language-model approvers at temperature zero, \exBccNarrApprove{} of
+\exBccN{} approved the left view and \exBccCardDeny{} of \exBccN{} denied the right one.}
+\label{fig:example}
+\end{figure}
+
+\subsection{Targets and method}
+
+We tested the documented, intended use of each target locally, with neutral placeholder data; no real service,
+credential or person was contacted. The targets are:
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+\item \textbf{AP2}, the Agent Payments Protocol reference implementation~\citep{ap2spec}, at commit
+  \code{e1ea56d} (v0.2.0). We executed its mandate constraint checks and read its sample card component from source.
+\item \textbf{AGT}, Microsoft's Agent Governance Toolkit, whose ADR~0030 specifies an action-bound, fail-closed
+  approval protocol~\citep{microsoft2026adr0030}, at commit \code{47abed7}. All AGT cells were executed.
+\item \textbf{MCP}, the Model Context Protocol Python SDK 2.3.0 and its elicitation feature~\citep{mcp2025elicitation},
+  executed over an in-memory client and server session.
+\item \textbf{OpenClaw} 2026.10.3, whose exec approvals and ``allow always'' grants we reviewed statically in the
+  shipped bundle, because its live loop requires a model; every OpenClaw cell is marked as not executed.
+\item \textbf{Frameworks}, the eight in-process frameworks of \cref{sec:audit}; this column is derived from the
+  audit's executed probes, not re-run.
+\item \textbf{\sys{}}, the reference defense of \cref{sec:design}; each cell maps to named tests run against the
+  live gateway.
+\end{itemize}
+
+\begin{table}[t]
+\centering\small
+\caption{Approval-path attacks against real designs. VULN: the attack succeeds against documented usage. PART:
+the attack succeeds only at the argument level, depends on the integrator, or reflects a stated trust assumption.
+ok: the attack fails. n/a: the target has no such feature. $^\ast$: not executed in this run (static review, or
+derived from the audit). The AP2 \AB{6} cell combines an executed constraint check with a source reading of the
+sample card.}
+\label{tab:attacks}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}l*{6}{c}@{}}
+\toprule
+Attack & AP2 & AGT & MCP & OpenClaw & Frameworks & \sys{}\\
+\midrule
+\inputtab{tables/tab_attacks.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Findings}
+
+\paragraph{AP2 binds what it signs; its sample display does not.} AP2's constraint layer rejected every executed
+binding attack. Amounts are a single typed integer field, so \AB{1} has nothing to cancel. Allowed payees are
+matched on the merchant identifier, so a decoy display name does not redirect a payment (\AB{2}), and a pre-set
+payee or currency in an open mandate cannot be stretched (\AB{3}). Two residuals remain. The sample mandate card
+summarizes \code{payee.name}, a merchant-chosen string with no length cap or invisible-character handling, while
+the binding is on \code{payee.id}, so two different payees can share a display (\AB{6}). And a mandate budget is
+cumulative only if the integrator persists and adds up a caller-supplied usage context; without that, two
+sub-budget payments both pass (\AB{12}). Both are integrator or sample issues, not breaks of the signed
+mandate, and the specification already asks for a trusted surface.
+
+\paragraph{AGT is the strongest third-party design we tested.} Its digest covers the whole action binding, so
+substitution after approval fails with \code{action\_digest\_mismatch} (\AB{10}) and decoy fields change the
+digest (\AB{2}). A language model's advisory output cannot satisfy a human stage (\AB{5}), and approvals are
+consumed once. Its two partial cells concern stated scope. The project documents that floats are serialized with Python's
+representation, not RFC~8785's, so three of five sample floats would hash differently in a verifier written in
+another language (\AB{8}); this is a parity failure that fails closed, not a collision. ADR~0030 also does not
+claim flood control, and the module opened 50 pending requests freely, leaving rate limiting to the host
+(\AB{11}).
+
+\paragraph{MCP elicitation forwards whatever the server writes.} Elicitation is a form prompt, not an effect-bound
+approval, and the SDK passes the server's message to the client unchanged. In the executed session, a
+521-character message carrying 400 blank Braille glyphs, a right-to-left override and 50 Hangul fillers reached the
+client byte for byte (\AB{4}). Text imitating trusted labels arrived verbatim while the tool paid a different
+account (\AB{5}). Two different payments, 10 to one account and 10000 to another, produced byte-identical
+requests, and both executed after ``accept'' (\AB{6}). The form answer is not bound to any effect (\AB{10},
+partial). The specification already directs sensitive interactions to its URL mode, which keeps them away from the
+client and recommends that clients rate-limit requests~\citep{mcp2025elicitation}; these findings concern form mode and the clients that render it.
+
+\paragraph{OpenClaw's card is the positive control for rendering.} Its exec-approval card escapes invisible
+characters, caps length and redacts secrets, the treatment that \AB{4} requires, and its ``allow
+always'' grants are keyed to the resolved argument vector and working directory. The residual is that a standing
+grant is matched on parsed arguments rather than a signed digest (\AB{3}, partial, static).
+
+\paragraph{In-process frameworks hand the ceremony to the agent.} Because approval callbacks run inside the agent's
+process, the agent can drive the ceremony itself (\AB{9}), and the audit reproduced post-approval substitution in
+four runtimes (\AB{10}, \cref{sec:audit}). No framework ships a trusted renderer, so agent-chosen names and text
+reach the human unmediated (\AB{5}, \AB{6}).
+
+\paragraph{The reference defense blocks every agent-reachable attack, and one trust assumption remains.} \sys{}
+stops \AB{1} to \AB{8} and \AB{10} to \AB{12} in tests against the live gateway (\cref{sec:design} describes the
+mechanisms). Its \AB{9} cell is partial by design: the agent's token is refused on every ceremony endpoint, but a
+page served from the gateway's own origin could show one card and obtain a signature over another approval's
+challenge, because authenticators do not display the challenge. The receipt still verifies at the key level, and
+the effect that executes is the one the device signed. This is the honest-rendering-origin hypothesis \Hyp{3} of
+\cref{sec:formal}, not an attack the agent can mount.
+
+We describe these as findings about designs, not as vulnerabilities in deployed services; the
+\hyperref[sec:ethics]{Ethics and Availability} section discusses them further.

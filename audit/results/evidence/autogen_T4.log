@@ -1,0 +1,1 @@
+T4: the prompt shown is a fixed 'Enter your response:' string; the user reacts to the preceding conversation (model narration). UserProxy is a conversational turn, not an approval card — reported n/a; the gate's rendering is in the gate row.

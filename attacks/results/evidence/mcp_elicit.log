@@ -1,0 +1,43 @@
+elicit_with_validation forwards `message` unmodified: True
+elicit_url forwards `message` unmodified too: True
+form schema validated/rendered: True
+
+Executed elicitation run (attacks/probes/_mcp_elicit_exec.py):
+{
+ "mcp_version": "2.3.0",
+ "AB4_verbatim": true,
+ "AB4_len_received": 521,
+ "AB4_has_U2800_U202E": true,
+ "AB5_verbatim": true,
+ "AB5_payee_executed": "acct-placeholder-999",
+ "AB6_identical_requests": true,
+ "AB6_distinct_effects_executed": [
+  {
+   "amount": 10,
+   "payee": "acct-utility-001"
+  },
+  {
+   "amount": 10000,
+   "payee": "acct-placeholder-999"
+  }
+ ],
+ "ledger": [
+  {
+   "amount": 10000,
+   "payee": "acct-utility-001"
+  },
+  {
+   "amount": 10,
+   "payee": "acct-placeholder-999"
+  },
+  {
+   "amount": 10,
+   "payee": "acct-utility-001"
+  },
+  {
+   "amount": 10000,
+   "payee": "acct-placeholder-999"
+  }
+ ],
+ "ok": true
+}

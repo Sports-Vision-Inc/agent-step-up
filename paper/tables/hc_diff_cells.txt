@@ -1,0 +1,3 @@
+A9 careless:0.3 asu=0.700 host=0.300
+A9 fatigued:0.1:0.9 asu=0.600 host=0.550
+A9 perceptual asu=0.000 host=0.200

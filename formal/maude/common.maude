@@ -1,0 +1,213 @@
+*** ASU bounded symbolic models -- shared signature, event log, property checks.
+*** Maude 3.x. These modules are loaded by every model file in this directory.
+***
+*** Abstraction (mirrors formal/tamarin/*.spthy):
+***  - Messages are free terms (perfect cryptography). sig(m, sk(U)) can only be
+***    produced by the device or by an intruder that learned sk(U) (compromise).
+***  - The intruder IS the agent: it chooses every tool call, sees every value the
+***    gateway returns to the agent (approval id AND, conservatively, the nonce),
+***    and can replay any message it has seen to any gateway endpoint.
+***  - The device<->gateway approval channel is authentic: the card the human
+***    sees is the gateway's rendering of the stored descriptor (fact todev).
+***  - Bounds: finite effect universe, at most B fresh approvals/grants, at most
+***    `budget` executions. Results are "no counterexample within bound", not
+***    unbounded proofs.
+
+fmod ASU-TERMS is
+  protecting NAT .
+  sorts Msg MsgSet .
+  subsort Msg < MsgSet .
+  op mt : -> MsgSet [ctor] .
+  op _;_ : MsgSet MsgSet -> MsgSet [ctor assoc comm id: mt] .
+
+  op u : -> Msg [ctor] .                    *** the human principal
+  ops c1 c2 x1 x2 : -> Msg [ctor] .         *** scope constants / residual args
+  op eff : Msg Msg -> Msg [ctor] .          *** effect = (scope part, residual part)
+  op aid : Nat -> Msg [ctor] .              *** approval / grant id (fresh)
+  op nc : Nat -> Msg [ctor] .               *** nonce (fresh)
+  ops sk pk key : Msg -> Msg [ctor] .       *** signing key, public key, shared MAC/TOTP key
+  op h : Msg -> Msg [ctor] .                *** SHA-256(JCS(.)) as a free function
+  ops sig mac totp : Msg Msg -> Msg [ctor] .
+  op tup : Msg Msg Msg Msg -> Msg [ctor] .
+  ops tagA tagG tagS w0 : -> Msg [ctor] .   *** "ASU-APPROVAL-v1", grant tag, session tag, TOTP window
+  op yes : Msg -> Msg [ctor] .              *** chat "yes" for approval id
+
+  op scope : Msg -> Msg .
+  op memb : Msg MsgSet -> Bool .
+
+  vars M C X : Msg . var MS : MsgSet .
+  eq M ; M = M .
+  eq scope(eff(C, X)) = C .
+  eq memb(M, M ; MS) = true .
+  eq memb(M, MS) = false [owise] .
+endfm
+
+fmod ASU-LOG is
+  protecting ASU-TERMS .
+  sorts Event Log .
+  subsort Event < Log .
+  op nil : -> Log [ctor] .
+  op _;;_ : Log Log -> Log [ctor assoc id: nil] .
+
+  *** approve(U,A,E): the human approved a card showing E for approval A
+  *** approved(U,A,E): the gateway marked approval A (for stored effect E) approved
+  *** exec(U,A,E): the gateway executed E under approval A
+  *** signed(U,A,H): U's authenticator produced a signature/MAC binding A to H
+  *** judge(U,A,H): an offline verifier holding only public data accepted "U approved H under A"
+  ops approve approved exec signed judge approvegrant : Msg Msg Msg -> Event [ctor] .
+  op execg : Msg Msg Msg Msg -> Event [ctor] .   *** execg(U,G,C,E)
+  ops compromise gwcorrupt : Msg -> Event [ctor] .
+
+  op occ : Event Log -> Bool .
+  vars Ev : Event . vars L P R : Log . vars U U' A A' E E' C G H : Msg .
+  eq occ(Ev, L ;; Ev ;; R) = true .
+  eq occ(Ev, L) = false [owise] .
+
+  *** ---- L1 effect binding: exec(U,A,E) needs earlier approve(U,A,E) or compromise(U)
+  op vL1 : Log Log Log -> Bool .
+  eq vL1(L, P, nil) = false .
+  eq vL1(L, P, exec(U, A, E) ;; R) =
+     (not occ(approve(U, A, E), P) and not occ(compromise(U), L))
+     or vL1(L, P ;; exec(U, A, E), R) .
+  eq vL1(L, P, Ev ;; R) = vL1(L, P ;; Ev, R) [owise] .
+
+  *** ---- L1sig: exec(U,A,E) needs earlier signed(U,A,h(E)) or compromise(U)
+  op vL1s : Log Log Log -> Bool .
+  eq vL1s(L, P, nil) = false .
+  eq vL1s(L, P, exec(U, A, E) ;; R) =
+     (not occ(signed(U, A, h(E)), P) and not occ(compromise(U), L))
+     or vL1s(L, P ;; exec(U, A, E), R) .
+  eq vL1s(L, P, Ev ;; R) = vL1s(L, P ;; Ev, R) [owise] .
+
+  *** ---- L2 single use: two exec events for the same approval id
+  op hasExecA : Msg Log -> Bool .
+  eq hasExecA(A, L ;; exec(U, A, E) ;; R) = true .
+  eq hasExecA(A, L) = false [owise] .
+  op vL2 : Log -> Bool .
+  eq vL2(nil) = false .
+  eq vL2(exec(U, A, E) ;; R) = hasExecA(A, R) or vL2(R) .
+  eq vL2(Ev ;; R) = vL2(R) [owise] .
+
+  *** ---- L3 agent independence: approved(U,A,E) needs earlier approve(U,A,E) or compromise(U)
+  op vL3 : Log Log Log -> Bool .
+  eq vL3(L, P, nil) = false .
+  eq vL3(L, P, approved(U, A, E) ;; R) =
+     (not occ(approve(U, A, E), P) and not occ(compromise(U), L))
+     or vL3(L, P ;; approved(U, A, E), R) .
+  eq vL3(L, P, Ev ;; R) = vL3(L, P ;; Ev, R) [owise] .
+
+  *** ---- L4 non-repudiation. The offline judge is evaluated as a predicate on
+  *** the final state (whatever the agent knows, it can hand to a judge):
+  *** a judge holding only pk(U) accepts "U approved digest HD under A" for every
+  *** signature sig(tup(tagA,HD,A,N), sk(U)) the adversary knows. Violation: an
+  *** accepted (U,A,HD) that U's authenticator never signed, without compromise(U).
+  *** Gateway corruption is deliberately NOT an escape (P5 must hold without
+  *** trusting the gateway).
+  vars N HD : Msg . vars MS ES : MsgSet .
+  op vL4sig : MsgSet Log -> Bool .
+  eq vL4sig(sig(tup(tagA, HD, A, N), sk(U)) ; MS, L) =
+     (not occ(signed(U, A, HD), L) and not occ(compromise(U), L)) or vL4sig(MS, L) .
+  eq vL4sig(MS, L) = false [owise] .
+  *** V1 (unbound): the receipt signs only (session tag, U, A, N); the judge has
+  *** to take the digest from the gateway's unsigned claim, so ANY digest is
+  *** "accepted" for A.
+  op vL4sess : MsgSet MsgSet Log -> Bool .
+  eq vL4sess(sig(tup(tagS, U, A, N), sk(U)) ; MS, ES, L) =
+     (unsignedSome(U, A, ES, L) and not occ(compromise(U), L)) or vL4sess(MS, ES, L) .
+  eq vL4sess(MS, ES, L) = false [owise] .
+  *** V5 (MAC): the judge must be given the shared key; it accepts any known MAC,
+  *** and if key(U) leaked (gateway corruption) any (A, h(E)) for a known id A.
+  op vL4mac : MsgSet MsgSet MsgSet Log -> Bool .   *** remaining, full knowledge, effects, log
+  eq vL4mac(mac(tup(tagA, HD, A, N), key(U)) ; MS, K, ES, L) =
+     (not occ(signed(U, A, HD), L) and not occ(compromise(U), L)) or vL4mac(MS, K, ES, L) .
+  eq vL4mac(aid(F) ; MS, key(U) ; K, ES, L) =
+     (unsignedSome(U, aid(F), ES, L) and not occ(compromise(U), L)) or vL4mac(MS, key(U) ; K, ES, L) .
+  eq vL4mac(MS, K, ES, L) = false [owise] .
+  op unsignedSome : Msg Msg MsgSet Log -> Bool .  *** some effect digest not signed for A
+  eq unsignedSome(U, A, E ; ES, L) = (not occ(signed(U, A, h(E)), L)) or unsignedSome(U, A, ES, L) .
+  eq unsignedSome(U, A, mt, L) = false .
+  *** exists-trace: the judge accepts at least one genuine receipt
+  op okSig : MsgSet -> Bool .
+  eq okSig(sig(tup(tagA, HD, A, N), sk(U)) ; MS) = true .
+  eq okSig(MS) = false [owise] .
+  op okMac : MsgSet -> Bool .
+  eq okMac(mac(tup(tagA, HD, A, N), key(U)) ; MS) = true .
+  eq okMac(MS) = false [owise] .
+  var F : Nat . var K : MsgSet .
+
+  *** ---- L5 grant scope: execg(U,G,C,E) needs scope(E) = C and earlier approvegrant(U,G,C)
+  op vL5 : Log Log Log -> Bool .
+  eq vL5(L, P, nil) = false .
+  eq vL5(L, P, execg(U, G, C, E) ;; R) =
+     ((scope(E) =/= C or not occ(approvegrant(U, G, C), P)) and not occ(compromise(U), L))
+     or vL5(L, P ;; execg(U, G, C, E), R) .
+  eq vL5(L, P, Ev ;; R) = vL5(L, P ;; Ev, R) [owise] .
+
+  *** ---- L5b grant use cap (signed max_uses = 2): three execg under one grant
+  op cntG : Msg Log -> Nat .
+  eq cntG(G, nil) = 0 .
+  eq cntG(G, execg(U, G, C, E) ;; R) = s cntG(G, R) .
+  eq cntG(G, Ev ;; R) = cntG(G, R) [owise] .
+  op vL5b : Log Log -> Bool .
+  eq vL5b(L, nil) = false .
+  eq vL5b(L, execg(U, G, C, E) ;; R) = cntG(G, L) > 2 or vL5b(L, R) .
+  eq vL5b(L, Ev ;; R) = vL5b(L, R) [owise] .
+
+  *** ---- sanity (exists-trace): an honest execution without compromise
+  op okExec : Log Log -> Bool .
+  eq okExec(L, nil) = false .
+  eq okExec(L, exec(U, A, E) ;; R) = (not occ(compromise(U), L)) or okExec(L, R) .
+  eq okExec(L, Ev ;; R) = okExec(L, R) [owise] .
+  op okExecG : Log Log -> Bool .
+  eq okExecG(L, nil) = false .
+  eq okExecG(L, execg(U, G, C, E) ;; R) = (not occ(compromise(U), L)) or okExecG(L, R) .
+  eq okExecG(L, Ev ;; R) = okExecG(L, R) [owise] .
+endfm
+
+mod ASU-CONFIG is
+  protecting ASU-LOG .
+  sorts Fact Config .
+  subsort Fact < Config .
+  op none : -> Config [ctor] .
+  op __ : Config Config -> Config [ctor assoc comm id: none] .
+
+  op ik : MsgSet -> Fact [ctor] .                 *** intruder (= agent) knowledge
+  op log : Log -> Fact [ctor] .                   *** trace of events
+  op fresh : Nat Nat -> Fact [ctor] .             *** next fresh index, bound B
+  op budget : Nat -> Fact [ctor] .                *** remaining executions
+  op effs : MsgSet -> Fact [ctor] .               *** effect universe (public)
+  op scopes : MsgSet -> Fact [ctor] .             *** grant-constraint universe (public)
+  op dev : Msg -> Fact [ctor] .                   *** U's authenticator device exists
+  op gw : Msg -> Fact [ctor] .                    *** gateway serving U
+  ops pending todev apst : Msg Msg Msg Msg -> Fact [ctor] .
+  op todevn : Msg Msg Msg Msg Msg -> Fact [ctor] . *** V2: (U,A,N,E,narration)
+  ops pgrant todevg : Msg Msg Msg Msg -> Fact [ctor] .
+  op gst : Msg Msg Msg Nat -> Fact [ctor] .       *** active grant (U,G,C,uses left)
+
+  *** badX(C) = true iff the trace in C violates lemma X; okX = exists-trace witness
+  ops badL1 badL1sig badL2 badL3 badL4sig badL4sess badL4mac badL5 badL5b okSane okGrant okJudgeSig okJudgeMac : Config -> Bool .
+  var CF : Config . var L : Log . vars K ES : MsgSet .
+  eq badL1(log(L) CF) = vL1(L, nil, L) .
+  eq badL1sig(log(L) CF) = vL1s(L, nil, L) .
+  eq badL2(log(L) CF) = vL2(L) .
+  eq badL3(log(L) CF) = vL3(L, nil, L) .
+  eq badL4sig(ik(K) log(L) CF) = vL4sig(K, L) .
+  eq badL4sess(ik(K) effs(ES) log(L) CF) = vL4sess(K, ES, L) .
+  eq badL4mac(ik(K) effs(ES) log(L) CF) = vL4mac(K, K, ES, L) .
+  eq badL5(log(L) CF) = vL5(L, nil, L) .
+  eq badL5b(log(L) CF) = vL5b(L, L) .
+  eq okSane(log(L) CF) = okExec(L, L) .
+  eq okGrant(log(L) CF) = okExecG(L, L) .
+  eq okJudgeSig(ik(K) CF) = okSig(K) .
+  eq okJudgeMac(ik(K) CF) = okMac(K) .
+endm
+
+*** Key compromise of the user's authenticator is NOT given to the search as a
+*** rule. Every safety lemma has the escape "... or compromise(U) occurred
+*** anywhere in the trace", and every exists-trace lemma requires no compromise,
+*** so any trace containing a compromise step can neither violate a lemma nor
+*** witness a sanity lemma; dropping the rule removes no relevant trace and
+*** keeps the bounded search tractable. (The Tamarin models do include it.)
+mod ASU-ADV is
+  including ASU-CONFIG .
+endm

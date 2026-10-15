@@ -1,0 +1,2 @@
+module-level approval/confirm/human names = ['Confirm'] (Confirm is rich.prompt); MultiStepAgent approval methods = []; has interrupt() kill-switch = True.
+No framework rendering of any approval card.

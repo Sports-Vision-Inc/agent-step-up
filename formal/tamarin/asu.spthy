@@ -1,0 +1,370 @@
+/*
+ * ASU: Agent Step-Up -- full protocol, revision 2 (DECISIONS D-005 items 1, 7, 8;
+ * docs/critique/formal.md F1-F12). Read formal/README.md before citing.
+ *
+ * Adversary. The Dolev-Yao adversary IS the agent. It chooses every tool call
+ * (any structured effect <tool, target, amount>, any explanation text), sees
+ * everything the gateway returns, sees every WebAuthn assertion, and may send
+ * anything to any gateway rule. Three strengthenings are part of THIS theory,
+ * each emitting a marker action so lemmas can state the hypothesis they need:
+ *
+ *   H1  human decides from trusted fields only.  Violated by rule
+ *       Human_DecidesOnExplanation (marker DecidesOnExplanation(U, aid)).
+ *   H2  enrollment closed.  Violated by Open_Enrollment + Agent_Enrolls
+ *       (marker EnrollmentOpen()).  D-005 item 2: closed is the default.
+ *   H3  honest rendering origin (the page that drives the authenticator shows
+ *       the card that matches the challenge).  Violated by rule
+ *       Origin_Controls_Ceremony (marker CeremonyControl(U)); this replaces the
+ *       old no-op Corrupt_Gateway rule (critique F2 / mutant M5).
+ *
+ * The "X1-X3" attack variants are the SAME theory with one hypothesis dropped
+ * from a lemma (lemmas named X1_*, X2_*, X3_*), so the attacked model can never
+ * drift from the verified one.
+ *
+ * Challenge (D-005 item 1). The code computes
+ *   c = SHA-256(JCS({"tag":"ASU-APPROVAL-v2","digest":h,"approval_id":id,
+ *                    "nonce":n,"grant_digest":g|null}))
+ * ENCODING ASSUMPTION: JCS (asu/jcs.py canonicalize, RFC 8785) of a JSON object
+ * with a fixed key set is injective in the field values, and SHA-256 is
+ * collision resistant, so c is modelled as the free tuple
+ *   <'ASU-APPROVAL-v2', h, aid, gd>      (gd = h(g) or 'null').
+ * The nonce is NOT modelled: aid is already fresh and never reused, and
+ * removing n changes no verdict (critique mutant M6). Dropping a field from
+ * the signed tuple only makes signatures reusable in MORE contexts, so the
+ * omission over-approximates the adversary (sound for safety lemmas).
+ *
+ * Rendering (assumption A-Render). The card is <aid, render(e), render(g), expl>.
+ * render/1 is injective, stated as the equation unrender(render(x)) = x; the
+ * human rules read unrender(card field), i.e. the human recovers e from the
+ * card. The code-side obligation is the
+ * injectivity property test of asu/descriptor.py render_card (D-005 item 6).
+ *
+ * Expiry, sessions (A11), flood control (P7), UV/UP/origin/rpId/sign-count
+ * checks are NOT modelled; see README "Not modelled".
+ */
+theory ASU
+begin
+
+builtins: signing, hashing, natural-numbers
+
+functions: render/1, unrender/1
+
+/* A-Render: rendering is injective -- it has a left inverse. */
+equations: unrender(render(x)) = x
+
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+/* amount check of a bounded free grant field: x <= y on naturals */
+restriction LessEq:
+  "All x:nat y:nat #i. LeqNat(x:nat, y:nat) @ #i ==>
+     (x:nat = y:nat | Ex z:nat. x:nat %+ z:nat = y:nat)"
+
+/* first enrollment for a principal happens once (later enrollments need an
+   existing credential, which only the device holder has). */
+restriction FirstEnrollmentOnce:
+  "All U #i #j. OnlyOnce(U) @ #i & OnlyOnce(U) @ #j ==> #i = #j"
+
+/* ---------------- enrollment ---------------- */
+
+/* Honest enrollment with the out-of-band one-time token (D-005 item 2). */
+rule Register_Device:
+    [ Fr(~sk) ]
+  --[ OnlyOnce($U), Register($U, pk(~sk)) ]->
+    [ !Ltk($U, ~sk), !Pk($U, pk(~sk)), Out(pk(~sk)) ]
+
+/* dev_mode / open enrollment: anyone reaching the gateway may enroll the
+   first credential of an unused principal. Violates H2. */
+rule Open_Enrollment:
+    [ ]
+  --[ EnrollmentOpen() ]->
+    [ !EnrollOpenState() ]
+
+rule Agent_Enrolls:
+    [ !EnrollOpenState(), Fr(~ask) ]
+  --[ OnlyOnce($U), AgentEnrolled($U) ]->
+    [ !Pk($U, pk(~ask)), Out(~ask) ]
+
+/* Device key compromise (out of scope; lemmas exempt it if it happened
+   BEFORE the event in question, critique F12). */
+rule Compromise_Device:
+    [ !Ltk(U, sk) ]
+  --[ Compromise(U) ]->
+    [ Out(sk) ]
+
+/* ---------------- tool call -> pending approval ---------------- */
+
+/* Tool call; no grant offered. */
+rule Gateway_ToolCall:
+    [ In(<'call', U, <t, r, a:nat>, expl>), !Pk(U, pkU), Fr(~aid) ]
+  --[ Challenge(U, ~aid, <t, r, a:nat>) ]->
+    [ Pending(U, ~aid, <t, r, a:nat>, 'nogrant'),
+      ToDevice(U, ~aid, <t, r, a:nat>, 'nogrant', expl),
+      Out(~aid) ]
+
+/* Tool call; the GATEWAY builds the grant g from the descriptor
+   (asu/grants.py build_grant_request): principal, tool and target are bound
+   to the approved values; the amount is the only free field, bounded by the
+   approved amount (max_amount). The agent cannot choose g. */
+rule Gateway_ToolCall_OfferGrant:
+    let e = <t, r, a:nat>
+        g = <'grant', U, t, r, a:nat>
+    in
+    [ In(<'call_grant', U, e, expl>), !Pk(U, pkU), Fr(~aid) ]
+  --[ Challenge(U, ~aid, e), GrantOffered(U, ~aid, g) ]->
+    [ Pending(U, ~aid, e, g), ToDevice(U, ~aid, e, g, expl), Out(~aid) ]
+
+/* Honest rendering origin: shows the card and hands the authenticator the
+   matching challenge. Splits the card (for the human) from the challenge
+   (for the device). The grant is ticked or not by the human. */
+rule Origin_Ceremony:
+    [ ToDevice(U, aid, e, g, expl) ]
+  --[ ]->
+    [ Ceremony(U, <'ASU-APPROVAL-v2', h(e), aid, 'null'>, <aid, render(e), render('nogrant'), expl>) ]
+
+/* Same, with the human ticking "allow similar" (only if a grant was offered). */
+rule Origin_Ceremony_WithGrant:
+    let g = <'grant', U, t, r, a:nat> in
+    [ ToDevice(U, aid, e, g, expl) ]
+  --[ ]->
+    [ Ceremony(U, <'ASU-APPROVAL-v2', h(e), aid, h(g)>, <aid, render(e), render(g), expl>) ]
+
+/* Corrupt rendering origin (violates H3): shows a card of its choice and makes
+   the authenticator sign a challenge of its choice. Authenticators do not
+   display the challenge, so the human cannot notice. */
+rule Origin_Controls_Ceremony:
+    [ In(<'ceremony', U, c, card>) ]
+  --[ CeremonyControl(U) ]->
+    [ Ceremony(U, c, card) ]
+
+/* ---------------- human + authenticator ---------------- */
+
+/* H1-conforming human: decides from the trusted fields (the descriptor and the
+   grant rendered by the gateway). The device signs whatever challenge the
+   origin supplied. */
+rule Human_DecidesOnTrustedFields:
+    [ Ceremony(U, <'ASU-APPROVAL-v2', hd, aid, gd>, <aid, ce, cg, expl>),
+      !Ltk(U, sk) ]
+  --[ HumanApproves(U, aid, unrender(ce)), HumanApprovesGrant(U, aid, unrender(cg), gd),
+      DecidesOnTrusted(U, aid), Signed(U, aid, hd, gd) ]->
+    [ Out(sign(<'ASU-APPROVAL-v2', hd, aid, gd>, sk)) ]
+
+/* H1-violating human: decides from the (labelled untrusted, collapsed) agent
+   explanation box -- e.g. A8 priming. What the human intends is expl. */
+rule Human_DecidesOnExplanation:
+    [ Ceremony(U, <'ASU-APPROVAL-v2', hd, aid, gd>, <aid, ce, cg, expl>),
+      !Ltk(U, sk) ]
+  --[ HumanApproves(U, aid, expl), DecidesOnExplanation(U, aid),
+      Signed(U, aid, hd, gd) ]->
+    [ Out(sign(<'ASU-APPROVAL-v2', hd, aid, gd>, sk)) ]
+
+/* ---------------- gateway verification ---------------- */
+
+/* Assertion without grant digest. */
+rule Gateway_Verify:
+    [ Pending(U, aid, e, g), In(s), !Pk(U, pkU) ]
+  --[ Eq(verify(s, <'ASU-APPROVAL-v2', h(e), aid, 'null'>, pkU), true),
+      Approved(U, aid, e) ]->
+    [ ApprovedSt(U, aid, e, 'null', s) ]
+
+/* Assertion covering the grant digest: the grant becomes active with
+   max_uses = 2 (two linear use tokens). */
+rule Gateway_Verify_Grant:
+    let g = <'grant', U, t, r, a:nat> in
+    [ Pending(U, aid, e, g), In(s), !Pk(U, pkU) ]
+  --[ Eq(verify(s, <'ASU-APPROVAL-v2', h(e), aid, h(g)>, pkU), true),
+      Approved(U, aid, e), GrantActive(U, aid, g) ]->
+    [ ApprovedSt(U, aid, e, h(g), s), GrantUse(U, aid, g, '1'), GrantUse(U, aid, g, '2') ]
+
+/* Execute: digest re-check (mirrors the code; not load-bearing here, critique
+   mutant M1), atomic consume (linear fact), execute the gateway's STORED e. */
+rule Gateway_Execute:
+    [ ApprovedSt(U, aid, e, gd, s), In(<'exec', aid, e2>) ]
+  --[ Eq(h(e2), h(e)), Execute(U, aid, e) ]->
+    [ Out(<'receipt', U, aid, h(e), gd, s>) ]
+
+/* Execute under a grant: structured field-by-field matching against the
+   SIGNED grant (asu/grants.py grant_matches): principal by the fact, tool and
+   target equal, amount <= max_amount; one linear use token per execution. */
+rule Gateway_ExecuteUnderGrant:
+    [ GrantUse(U, gid, <'grant', U, t, r, cap:nat>, k),
+      In(<'gexec', U, gid, <t2, r2, a2:nat>>) ]
+  --[ Eq(t2, t), Eq(r2, r), LeqNat(a2:nat, cap:nat),
+      ExecuteGrant(U, gid, <t2, r2, a2:nat>), UseGrant(gid, k) ]->
+    [ ]
+
+/* P5: offline judge holding only U's registered public key. */
+rule Judge_Accept:
+    [ In(<'receipt', U, aid, hd, gd, s>), !Pk(U, pkU) ]
+  --[ Eq(verify(s, <'ASU-APPROVAL-v2', hd, aid, gd>, pkU), true),
+      JudgeAccepts(U, aid, hd, gd) ]->
+    [ ]
+
+/* ================= sanity (non-vacuity, under H1-H3) ================= */
+
+lemma exec_possible: exists-trace
+  "Ex U aid e #i. Execute(U, aid, e) @ #i
+     & not (Ex #k. Compromise(U) @ #k)
+     & not (Ex #d. DecidesOnExplanation(U, aid) @ #d)
+     & not (Ex #o. EnrollmentOpen() @ #o)
+     & not (Ex #c. CeremonyControl(U) @ #c)"
+
+lemma grant_exec_possible: exists-trace
+  "Ex U gid t r a:nat #i. ExecuteGrant(U, gid, <t, r, a:nat>) @ #i
+     & not (Ex #k. Compromise(U) @ #k)
+     & not (Ex #d. DecidesOnExplanation(U, gid) @ #d)
+     & not (Ex #o. EnrollmentOpen() @ #o)
+     & not (Ex #c. CeremonyControl(U) @ #c)"
+
+lemma judge_possible: exists-trace
+  "Ex U aid hd gd #i. JudgeAccepts(U, aid, hd, gd) @ #i
+     & not (Ex #k. Compromise(U) @ #k)
+     & not (Ex #o. EnrollmentOpen() @ #o)
+     & not (Ex #c. CeremonyControl(U) @ #c)"
+
+/* ================= main lemmas (with the hypotheses they need) ================= */
+
+/* L1 effect binding (consent part). Needs H1, H2, H3. */
+lemma L1_effect_binding:
+  "All U aid e #i. Execute(U, aid, e) @ #i
+     & not (Ex #d. DecidesOnExplanation(U, aid) @ #d)
+     & not (Ex #o. EnrollmentOpen() @ #o)
+     & not (Ex #c. CeremonyControl(U) @ #c)
+   ==> (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+/* L1 effect binding (cryptographic part): U's authenticator signed h(e) for
+   aid. Needs only H2. */
+lemma L1_sig_binding:
+  "All U aid e #i. Execute(U, aid, e) @ #i
+     & not (Ex #o. EnrollmentOpen() @ #o)
+   ==> (Ex gd #j. Signed(U, aid, h(e), gd) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+/* L2 single use / no replay. No hypothesis. */
+lemma L2_single_use:
+  "All U1 U2 aid e1 e2 #i #j.
+     Execute(U1, aid, e1) @ #i & Execute(U2, aid, e2) @ #j ==> #i = #j"
+
+/* L3 agent independence: approval state needs the human. Needs H1, H2, H3. */
+lemma L3_agent_independence:
+  "All U aid e #i. Approved(U, aid, e) @ #i
+     & not (Ex #d. DecidesOnExplanation(U, aid) @ #d)
+     & not (Ex #o. EnrollmentOpen() @ #o)
+     & not (Ex #c. CeremonyControl(U) @ #c)
+   ==> (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+/* L4 key-level non-repudiation (P5 as restated in D-005 item 7): a judge with
+   only pk(U) accepts (aid, hd, gd) only if U's authenticator signed exactly
+   that. Needs only H2; holds although the rendering origin may be corrupt. */
+lemma L4_non_repudiation:
+  "All U aid hd gd #i. JudgeAccepts(U, aid, hd, gd) @ #i
+     & not (Ex #o. EnrollmentOpen() @ #o)
+   ==> (Ex #j. Signed(U, aid, hd, gd) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+/* L4c consent-level non-repudiation: a receipt the judge accepts for h(e)
+   implies the human approved e. Needs H1, H2 and H3 (honest rendering origin). */
+lemma L4c_consent_nonrepudiation:
+  "All U aid e gd #i. JudgeAccepts(U, aid, h(e), gd) @ #i
+     & not (Ex #d. DecidesOnExplanation(U, aid) @ #d)
+     & not (Ex #o. EnrollmentOpen() @ #o)
+     & not (Ex #c. CeremonyControl(U) @ #c)
+   ==> (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+/* L5 grant scope: an effect executed under grant gid has the tool and target
+   of an effect the human approved on the gid card, together with the grant
+   g that the gateway built from it, and an amount <= the approved amount
+   (approved amount = a, or a + z for some natural z).
+   (No tautological "c2 = c" conjunct: the conclusion relates the executed
+   effect to what the HUMAN approved, not to the rule's own pattern.)
+   Needs H1, H2, H3. */
+lemma L5_grant_scope:
+  "All U gid t r a:nat #i. ExecuteGrant(U, gid, <t, r, a:nat>) @ #i
+     & not (Ex #d. DecidesOnExplanation(U, gid) @ #d)
+     & not (Ex #o. EnrollmentOpen() @ #o)
+     & not (Ex #c. CeremonyControl(U) @ #c)
+   ==> (Ex #j. HumanApproves(U, gid, <t, r, a:nat>) @ #j
+            & HumanApprovesGrant(U, gid, <'grant', U, t, r, a:nat>,
+                                 h(<'grant', U, t, r, a:nat>)) @ #j
+            & #j < #i)
+     | (Ex z:nat #j. HumanApproves(U, gid, <t, r, a:nat %+ z:nat>) @ #j
+            & HumanApprovesGrant(U, gid, <'grant', U, t, r, a:nat %+ z:nat>,
+                                 h(<'grant', U, t, r, a:nat %+ z:nat>)) @ #j
+            & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+/* L5b grant use cap: at most max_uses (= 2) executions per grant. */
+lemma L5b_grant_max_uses:
+  "All gid k1 k2 k3 #i #j #l.
+     UseGrant(gid, k1) @ #i & UseGrant(gid, k2) @ #j & UseGrant(gid, k3) @ #l
+     ==> #i = #j | #i = #l | #j = #l"
+
+/* ================= X1-X3: the same lemmas with one hypothesis dropped =========
+   Expected FALSIFIED; each documents an attack that the hypothesis excludes. */
+
+/* X1 (no H1): the human decides on the agent's explanation box. */
+lemma X1_L1_effect_binding_noH1:
+  "All U aid e #i. Execute(U, aid, e) @ #i
+     & not (Ex #o. EnrollmentOpen() @ #o)
+     & not (Ex #c. CeremonyControl(U) @ #c)
+   ==> (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+lemma X1_L3_agent_independence_noH1:
+  "All U aid e #i. Approved(U, aid, e) @ #i
+     & not (Ex #o. EnrollmentOpen() @ #o)
+     & not (Ex #c. CeremonyControl(U) @ #c)
+   ==> (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+/* X2 (no H3): the rendering origin controls the ceremony. */
+lemma X2_L4c_consent_nonrepudiation_noH3:
+  "All U aid e gd #i. JudgeAccepts(U, aid, h(e), gd) @ #i
+     & not (Ex #d. DecidesOnExplanation(U, aid) @ #d)
+     & not (Ex #o. EnrollmentOpen() @ #o)
+   ==> (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+lemma X2_L1_effect_binding_noH3:
+  "All U aid e #i. Execute(U, aid, e) @ #i
+     & not (Ex #d. DecidesOnExplanation(U, aid) @ #d)
+     & not (Ex #o. EnrollmentOpen() @ #o)
+   ==> (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+/* X3 (no H2): open enrollment lets the agent enroll a principal's first key. */
+lemma X3_L1_effect_binding_open_enrollment:
+  "All U aid e #i. Execute(U, aid, e) @ #i
+     & not (Ex #d. DecidesOnExplanation(U, aid) @ #d)
+     & not (Ex #c. CeremonyControl(U) @ #c)
+   ==> (Ex #j. HumanApproves(U, aid, e) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+lemma X3_L1_sig_binding_open_enrollment:
+  "All U aid e #i. Execute(U, aid, e) @ #i
+   ==> (Ex gd #j. Signed(U, aid, h(e), gd) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+lemma X3_L4_non_repudiation_open_enrollment:
+  "All U aid hd gd #i. JudgeAccepts(U, aid, hd, gd) @ #i
+   ==> (Ex #j. Signed(U, aid, hd, gd) @ #j & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+lemma X3_L5_grant_scope_open_enrollment:
+  "All U gid t r a:nat #i. ExecuteGrant(U, gid, <t, r, a:nat>) @ #i
+     & not (Ex #d. DecidesOnExplanation(U, gid) @ #d)
+     & not (Ex #c. CeremonyControl(U) @ #c)
+   ==> (Ex #j. HumanApproves(U, gid, <t, r, a:nat>) @ #j
+            & HumanApprovesGrant(U, gid, <'grant', U, t, r, a:nat>,
+                                 h(<'grant', U, t, r, a:nat>)) @ #j
+            & #j < #i)
+     | (Ex z:nat #j. HumanApproves(U, gid, <t, r, a:nat %+ z:nat>) @ #j
+            & HumanApprovesGrant(U, gid, <'grant', U, t, r, a:nat %+ z:nat>,
+                                 h(<'grant', U, t, r, a:nat %+ z:nat>)) @ #j
+            & #j < #i)
+     | (Ex #k. Compromise(U) @ #k & #k < #i)"
+
+end

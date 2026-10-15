@@ -1,0 +1,2 @@
+T3: after approving call_A then a new call_B appears; interruptions=1 ledger=[{'amount': 10, 'to': 'alice'}]
+T3 rollback: same approved RunState JSON resumed twice -> ledger=[{'amount': 10, 'to': 'alice'}, {'amount': 10, 'to': 'alice'}]

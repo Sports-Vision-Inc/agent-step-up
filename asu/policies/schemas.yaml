@@ -1,0 +1,124 @@
+# Packaged per-tool argument schemas (D-005 item 4).
+#
+# Every tool used by the default policy, the scripted experiments
+# (experiments/policies.py) and the AgentDojo v1 replay
+# (experiments/agentdojo_replay.py, all four suites) declares its arguments
+# here with a type. ``asu.config.load_policy`` fills ``tools.<name>.args`` from
+# this file for every tool the policy lists (an explicit ``args`` entry in the
+# policy overrides the type of that argument; ``schema_library: false`` in a
+# policy disables the merge). A tool with a schema is CLOSED: a call carrying
+# any argument not listed is denied (``unknown_argument:<name>``).
+#
+# Types: recipient | account | amount | currency | path | url | argv | text |
+#        flag | int | enum (with values) | env | json (verbatim structured value)
+# Grants bind every argument exactly, except ``amount`` (free up to the
+# approved amount) and ``text`` (free, length-bounded); recipients, accounts,
+# paths and urls are never free (D-005 item 5).
+
+# ---------------------------------------------------------------- default policy / scenarios
+read_file:       {path: path, file_path: path}
+list_dir:        {path: path}
+read_inbox:      {folder: text, user: account}
+write_file:      {path: path, content: text, append: flag}
+delete_file:     {path: path, paths: path, file_id: account, recursive: flag}
+send_email:
+  to: recipient
+  cc: recipient
+  bcc: recipient
+  recipients: recipient
+  subject: text
+  body: text
+  attachments: json
+send_message:    {to: recipient, recipient: recipient, channel: account, body: text, text: text}
+transfer_money:  {to_account: account, payee: account, amount: amount, currency: currency, memo: text}
+http_request:
+  url: url
+  method: {type: enum, values: [GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS]}
+  body: text
+  headers: json
+http_post:       {url: url, body: text, headers: json}
+run_shell:       {command: argv, cwd: path, env: env, timeout_s: int}
+change_settings: {setting: text, value: json}
+remove_member:   {member: account, reason: text}
+
+# ---------------------------------------------------------------- AgentDojo v1: workspace
+delete_email:                    {email_id: text}
+get_unread_emails:               {}
+get_sent_emails:                 {}
+get_received_emails:             {}
+get_draft_emails:                {}
+search_emails:                   {query: text, sender: recipient}
+search_contacts_by_name:         {query: text}
+search_contacts_by_email:        {query: text}
+get_current_day:                 {}
+search_calendar_events:          {query: text, date: text}
+get_day_calendar_events:         {day: text}
+create_calendar_event:
+  title: text
+  start_time: text
+  end_time: text
+  description: text
+  participants: recipient
+  location: text
+cancel_calendar_event:           {event_id: text}
+reschedule_calendar_event:       {event_id: text, new_start_time: text, new_end_time: text}
+add_calendar_event_participants: {event_id: text, participants: recipient}
+append_to_file:                  {file_id: account, content: text}
+search_files_by_filename:        {filename: text}
+create_file:                     {filename: text, content: text}
+get_file_by_id:                  {file_id: account}
+list_files:                      {}
+share_file:
+  file_id: account
+  email: recipient
+  permission: {type: enum, values: [r, rw]}
+search_files:                    {query: text}
+
+# ---------------------------------------------------------------- AgentDojo v1: travel
+get_user_information:                        {}
+get_all_hotels_in_city:                      {city: text}
+get_hotels_prices:                           {hotel_names: json}
+get_rating_reviews_for_hotels:               {hotel_names: json}
+get_hotels_address:                          {hotel_name: text}
+get_all_restaurants_in_city:                 {city: text}
+get_cuisine_type_for_restaurants:            {restaurant_names: json}
+get_restaurants_address:                     {restaurant_names: json}
+get_rating_reviews_for_restaurants:          {restaurant_names: json}
+get_dietary_restrictions_for_all_restaurants: {restaurant_names: json}
+get_contact_information_for_restaurants:     {restaurant_names: json}
+get_price_for_restaurants:                   {restaurant_names: json}
+check_restaurant_opening_hours:              {restaurant_names: json}
+get_all_car_rental_companies_in_city:        {city: text}
+get_car_types_available:                     {company_name: json}
+get_rating_reviews_for_car_rental:           {company_name: json}
+get_car_fuel_options:                        {company_name: json}
+get_car_rental_address:                      {company_name: json}
+get_car_price_per_day:                       {company_name: json}
+reserve_hotel:                               {hotel: account, start_day: text, end_day: text}
+reserve_car_rental:                          {company: account, start_time: text, end_time: text}
+reserve_restaurant:                          {restaurant: account, start_time: text}
+get_flight_information:                      {departure_city: text, arrival_city: text}
+
+# ---------------------------------------------------------------- AgentDojo v1: banking
+get_iban:                     {}
+send_money:                   {recipient: recipient, amount: amount, subject: text, date: text}
+schedule_transaction:         {recipient: recipient, amount: amount, subject: text, date: text, recurring: flag}
+update_scheduled_transaction: {id: int, recipient: recipient, amount: amount, subject: text, date: text, recurring: flag}
+get_balance:                  {}
+get_most_recent_transactions: {n: int}
+get_scheduled_transactions:   {}
+get_user_info:                {}
+update_password:              {password: text}
+update_user_info:             {first_name: text, last_name: text, street: text, city: text}
+
+# ---------------------------------------------------------------- AgentDojo v1: slack
+get_channels:            {}
+add_user_to_channel:     {user: account, channel: account}
+read_channel_messages:   {channel: text}
+send_direct_message:     {recipient: recipient, body: text}
+send_channel_message:    {channel: account, body: text}
+get_users_in_channel:    {channel: text}
+invite_user_to_slack:    {user: account, user_email: recipient}
+remove_user_from_slack:  {user: account}
+get_webpage:             {url: url}
+post_webpage:            {url: url, content: text}
